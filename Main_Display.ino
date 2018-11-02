@@ -71,7 +71,7 @@ typedef enum {
 IOT_CONNECTION_STATE ConnectionState;
 uint8_t ConnectionCounter;
 HTTPClient http;  //Object of class HTTPClient
-WiFiClient client;
+
 /***********************************************************************************************/
 /***********************************************************************************************
  * Function: IoT_URL_ServerHandler
@@ -134,6 +134,7 @@ void IoT_ConnectionHandler(void) {
 #if DEBUG
     Serial.printf("Connecting to %s.\n", wifi_ssid);
 #endif
+    WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_ssid, wifi_pass);
     ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
     ConnectionCounter = 0;
@@ -235,7 +236,7 @@ void IoT_ConnectionHandler(void) {
 void setup()
 {
   Serial.begin(9600);
-  IoTConnectionHandlerTimer.setInterval(100, IoT_ConnectionHandler);
+  IoTConnectionHandlerTimer.setInterval(1000, IoT_ConnectionHandler);
   ConnectionState = IOT_CONNECT_TO_WIFI;
 
   String hostname("IoTDisplay-OTA-");
