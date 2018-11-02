@@ -92,10 +92,10 @@ WiFiClient client;
     DynamicJsonBuffer jsonBuffer(bufferSize);
     JsonObject& root = jsonBuffer.parseObject(http.getString());
     // Parameters
-    int id = root["id"]; // 1
-    const char* name = root["name"]; // "Leanne Graham"
-    const char* username = root["username"]; // "Bret"
-    const char* email = root["email"]; // "Sincere@april.biz"
+    int id = root["id"];
+    const char* name = root["name"];
+    const char* username = root["username"];
+    const char* email = root["email"];
 #if DEBUG
     // Output to serial monitor
     Serial.print("Name:");
