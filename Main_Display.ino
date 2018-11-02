@@ -56,8 +56,8 @@ SimpleTimer IoTConnectionHandlerTimer;
 
 // WiFi credentials.
 // Set password to "" for open networks.
-char wifi_ssid[] = "Airtel-B310-90C5";
-char wifi_pass[] = "A445F97458F";
+char wifi_ssid[] = "SSID";
+char wifi_pass[] = "PASSWORD";
 
 typedef enum {
   IOT_CONNECT_TO_WIFI,
