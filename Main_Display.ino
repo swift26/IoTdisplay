@@ -56,8 +56,8 @@ SimpleTimer IoTConnectionHandlerTimer;
 
 // WiFi credentials.
 // Set password to "" for open networks.
-char wifi_ssid[] = "SSID";
-char wifi_pass[] = "PASSWORD";
+char wifi_ssid[] = "Airtel-B310-90C5";
+char wifi_pass[] = "A445F97458F";
 
 typedef enum {
   IOT_CONNECT_TO_WIFI,
@@ -92,10 +92,10 @@ WiFiClient client;
     DynamicJsonBuffer jsonBuffer(bufferSize);
     JsonObject& root = jsonBuffer.parseObject(http.getString());
     // Parameters
-    int id = root["id"];
-    const char* name = root["name"];
-    const char* username = root["username"];
-    const char* email = root["email"];
+    int id = root["id"]; // 1
+    const char* name = root["name"]; // "Leanne Graham"
+    const char* username = root["username"]; // "Bret"
+    const char* email = root["email"]; // "Sincere@april.biz"
 #if DEBUG
     // Output to serial monitor
     Serial.print("Name:");
@@ -142,13 +142,13 @@ void IoT_ConnectionHandler(void) {
   case IOT_AWAIT_WIFI_CONNECTION:
     if (WiFi.status() == WL_CONNECTED) {
 #if DEBUG
-      Serial.printf("Connected to %s", wifi_ssid);
+      Serial.printf("Connected to %s\n", wifi_ssid);
 #endif
       ConnectionState = IOT_CONNECT_TO_URL;
     }
     else if (++ConnectionCounter == 50) {
 #if DEBUG
-      Serial.printf("Unable to connect to %s. Retry connection.", wifi_ssid);
+      Serial.printf("Unable to connect to %s. Retry connection.\n", wifi_ssid);
 #endif
       WiFi.disconnect();
       ConnectionState = IOT_AWAIT_DISCONNECT;
@@ -158,7 +158,7 @@ void IoT_ConnectionHandler(void) {
 
   case IOT_CONNECT_TO_URL:
 #if DEBUG
-    Serial.printf("Attempt to connect to URL server.");
+    Serial.printf("Attempt to connect to URL server.\n");
 #endif
     // Make a HTTP request:
     
@@ -169,13 +169,13 @@ void IoT_ConnectionHandler(void) {
   case IOT_AWAIT_URL_CONNECTION:
     if (http.begin(URL)) {
 #if DEBUG
-      Serial.printf("Connected to URL server.");
+      Serial.printf("Connected to URL server.\n");
 #endif
       ConnectionState = IOT_MAINTAIN_CONNECTIONS;
     }
     else if (++ConnectionCounter == 50) {
 #if DEBUG
-      Serial.printf("Unable to connect to URL server. Retry connection.");
+      Serial.printf("Unable to connect to URL server. Retry connection.\n");
 #endif
       /*Both wifi and url not available disconnect and try reconnecting after retry*/
       http.end();
@@ -188,7 +188,7 @@ void IoT_ConnectionHandler(void) {
   case IOT_MAINTAIN_CONNECTIONS:
     if (WiFi.status() != WL_CONNECTED) {
 #if DEBUG
-      Serial.printf("Wifi connection lost. Reconnect.");
+      Serial.printf("Wifi connection lost. Reconnect.\n");
 #endif
       /*Both wifi and url not available disconnect and try reconnecting after retry*/
       http.end();
@@ -198,7 +198,7 @@ void IoT_ConnectionHandler(void) {
     }
     else  if (!http.begin(URL)) {
 #if DEBUG
-      Serial.printf("URL server connection lost. Reconnect.");
+      Serial.printf("URL server connection lost. Reconnect.\n");
 #endif
       http.end();
       ConnectionState = IOT_CONNECT_TO_URL;
