@@ -42,3 +42,12 @@ It is an led display project based on ESP8266
                        1. Wifi frame work for connection and re connection.
                        2. OTA upgrade over Wifi.
                        3. Display elements on Serial port.(until LED module available)
+        Commited by : TK
+
+Version 1.0:
+
+        Dec 6 2018: Added display module code
+                      1. Pin details.
+                      2. Keypress code
+                      3. Display buffer and code for display.
+         Commited by: SAM
