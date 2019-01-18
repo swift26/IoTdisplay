@@ -89,7 +89,7 @@
 #include <ESP8266HTTPClient.h> //Httpclient
 #include <ArduinoJson.h> //For JSON file formats
 #include <WiFiClient.h>  //for Wifi TCP client
-
+#include <TimeLib.h>
 /*
 *------------------------------------------------------------------------------
 * Private Defines
@@ -152,6 +152,7 @@ unsigned char     buttonStateDec;              // the current reading from the i
 unsigned char     lastbuttonStateDec = LOW;    // the previous reading from the input pin
 unsigned long     lastDebounceTimeDec = 0;     // the last time the output pin was toggled
 unsigned long     debounceDelay = 50;       // the debounce time; increase if the output flickers
+unsigned int      current_apmt_count = 0;
 
 unsigned char     CHAR_CODE[]
 = {
@@ -168,6 +169,15 @@ unsigned char     CHAR_CODE[]
   };
 
 SimpleTimer IoTConnectionHandlerTimer;
+
+// NTP Servers:
+const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
+static const char ntpServerName[] = "us.pool.ntp.org";
+const int timeZone = 5; //For india + 5:30
+
+WiFiUDP Udp;
+unsigned int localPort = 8888;  // local port to listen for UDP packets
 
 // WiFi credentials.
 // Set password to "" for open networks.
@@ -186,6 +196,10 @@ typedef enum {
 IOT_CONNECTION_STATE ConnectionState;
 uint8_t ConnectionCounter;
 HTTPClient http;  //Object of class HTTPClient
+
+time_t getNtpTime();
+void sendNTPpacket(IPAddress &address);
+
 /*
 *------------------------------------------------------------------------------
 *  unsigned char ReadkeyUp(void)
@@ -335,20 +349,6 @@ void updateHeartBeat(void)
       state = (state)?0:1;
       digitalWrite(HB_LED_OUTPUT, state);
       //digitalWrite(BUZ_DRV_OUTPUT, state);      
-#if 1
-    /*------------------------------------START--------------------------------------*/
-    /* Auto incremental code for testing. Remove after actual implementation. */
-      memset(DisplayBuff, 0x00, sizeof(DisplayBuff));
-      if(count < 999)
-      {
-        count++;
-      }
-      else
-      {
-        count = 0;
-      }
-      WiriteDispVal(count);
-#endif         
     }
     /*------------------------------------END---------------------------------------*/
 }
@@ -419,39 +419,46 @@ void updateHeartBeat(void)
 */
  void IoT_URL_ServerHandler(void){
   String Payload;
-  int appointment_count = 0;
-  
+  int no_of_appointment = 0;
+  String current_date_time;
+  static int i=0;
+
   int httpCode = http.GET();
   //Check the returning code                                                                  
   if (httpCode > 0) {
     // Parsing
-    const size_t bufferSize = JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(8) + 370;
+    const size_t bufferSize = JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(6) + JSON_OBJECT_SIZE(9) + 6*JSON_OBJECT_SIZE(10) + 1620;
     DynamicJsonBuffer jsonBuffer(bufferSize);
     Payload = http.getString();
     //Serial.println(Payload); 
     
     JsonObject& root = jsonBuffer.parseObject(Payload);
     String sappointmentNumber = root["size"];
-    appointment_count = sappointmentNumber.toInt();
-    appointment_count;
+    no_of_appointment = sappointmentNumber.toInt();
+
+    //Find first valid appointment first with current time.
+    current_date_time = String(year())+"-"+String(month())+"-"+String(day())+"T"+String(hour())+":"+String(minute())+":"+String(second());
+    Serial.print(current_date_time);
+    Serial.println();
+
     
-    for(int i= 0; i < appointment_count; i++) //Check through all the appointment and find the appointment number.
-    {
-        String appointmentNumber = root["content"][i]["appointmentNumber"]; // "Leanne Graham"
-        String appointmentDate = root["content"][i]["appointmentDate"];
+    String appointmentNumber = root["content"][i]["appointmentNumber"];
+    String appointmentDate = root["content"][i]["appointmentDate"];
+    current_apmt_count = appointmentNumber.toInt();
     
-        
-    #if DEBUG
-        // Output to serial monitor
-        Serial.print("appointmentNumber:");
-        Serial.println(appointmentNumber);
-        Serial.print("appointmentDate:");
-        Serial.println(appointmentDate);
-    #endif
-        //Update the display number with appointment number which match to current time slot
-        // put if condition here
-        WiriteDispVal(appointmentNumber.toInt());
-    }
+#if DEBUG
+    // Output to serial monitor
+    Serial.print("appointmentNumber:");
+    Serial.println(appointmentNumber);
+    Serial.print("appointmentDate:");
+    Serial.println(appointmentDate);
+#endif
+    //Update the display number with appointment number which match to current time slot
+    // put if condition here
+    WiriteDispVal(current_apmt_count);
+    i++;
+    if(i >= no_of_appointment)
+      i = 0;
   }
  }
 
@@ -484,7 +491,7 @@ void IoT_ConnectionHandler(void) {
 #if DEBUG
     Serial.printf("Connecting to %s.\n", wifi_ssid);
 #endif
-	WiFi.mode(WIFI_STA);
+	  WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_ssid, wifi_pass);
     ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
     ConnectionCounter = 0;
@@ -570,6 +577,70 @@ void IoT_ConnectionHandler(void) {
   }
 }
 
+/*
+ * -------------------------------------------------------------------------------------------
+ * 
+ * NTP code here
+ * 
+ * -------------------------------------------------------------------------------------------
+ */
+time_t getNtpTime()
+{
+  IPAddress ntpServerIP; // NTP server's ip address
+
+  while (Udp.parsePacket() > 0) ; // discard any previously received packets
+  Serial.println("Transmit NTP Request");
+  // get a random server from the pool
+  WiFi.hostByName(ntpServerName, ntpServerIP);
+  Serial.print(ntpServerName);
+  Serial.print(": ");
+  Serial.println(ntpServerIP);
+  sendNTPpacket(ntpServerIP);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+    int size = Udp.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      Serial.println("Receive NTP Response");
+      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)packetBuffer[43];
+      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR + (30 * 60) ; //India zone is 5.30 minutes
+    }
+  }
+  
+#if DEBUG
+  Serial.println("No NTP Response :-( Reconnect.\n");
+#endif
+  return 0; // return 0 if unable to get the time
+}
+
+// send an NTP request to the time server at the given address
+void sendNTPpacket(IPAddress &address)
+{
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12] = 49;
+  packetBuffer[13] = 0x4E;
+  packetBuffer[14] = 49;
+  packetBuffer[15] = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  Udp.beginPacket(address, 123); //NTP requests are to port 123
+  Udp.write(packetBuffer, NTP_PACKET_SIZE);
+  Udp.endPacket();
+}
+ 
 
 /*
 *---------------------------------------------------------------------------------------------- 
@@ -590,16 +661,27 @@ void IoT_ConnectionHandler(void) {
  
 void setup()
 {
+  int count=0;
   Serial.begin(9600);
-  IoTConnectionHandlerTimer.setInterval(5000, IoT_ConnectionHandler);
-  ConnectionState = IOT_CONNECT_TO_WIFI;
-
+  LedInitialWalk();
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(wifi_ssid, wifi_pass);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(200);
+    Serial.print(".");
+    WiriteDispVal(count++); //While trying to connect display 0 1 2 3 4 5 etc .. needs to be replaced with moving led pattern.
+  }
+  count = 0;
+  ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
   String hostname("IoTDisplay-OTA-");
   hostname += String(ESP.getChipId(), HEX);
   ArduinoOTA.setHostname((const char *)hostname.c_str());
   ArduinoOTA.begin();
-  LedInitialWalk();
-  
+  IoTConnectionHandlerTimer.setInterval(2000, IoT_ConnectionHandler);
+  Udp.begin(localPort);
+  setSyncProvider(getNtpTime);
+  setSyncInterval(200);
+  delay(500);
 }
 /***********************************************************************************************/
 /***********************************************************************************************
@@ -618,30 +700,17 @@ void loop()
   updateHeartBeat();
   if(0 == ReadkeyUp())
   {
-    if(count < 888)
-    {
-      count++;
-    }
-    else
-    {
-      count = 111;
-    } 
-    WiriteDispVal(count);      
-    delay(400);
+    current_apmt_count++;
+    WiriteDispVal(current_apmt_count);
+    //add code to push to server to increment appointment count
+    delay(400);      
   }
   
   if(0 == ReadkeyDn())
   {
-    if(count > 111)
-    {
-      count--;
-    }
-    else
-    if(111 == count)
-    {
-      count = 888;
-    } 
-    WiriteDispVal(count);      
+    current_apmt_count--;
+    WiriteDispVal(current_apmt_count);  
+    //add code to push to server to increment appointment count    
     delay(400);
   }    
 }
