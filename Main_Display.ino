@@ -34,7 +34,7 @@
 *------------------------------------------------------------------------------
 */
 
-/* 
+/*  
 *  ---------------------------------------------------------------------------
 * Project:     IoT based display 
 * 
@@ -102,7 +102,7 @@
  *----------------------------------------------------------------------------------------------
 */
 #define DEBUG 1
-#define URL "http://jsonplaceholder.typicode.com/users/1"
+#define URL "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?date1=2018-12-23&date2=2019-01-23"
 
 #define  MAX_DATA_LEN               (6)
 #define  HB_INTERVAL                (1000)   /* 1000msec ON/OFF .*/
@@ -186,9 +186,6 @@ typedef enum {
 IOT_CONNECTION_STATE ConnectionState;
 uint8_t ConnectionCounter;
 HTTPClient http;  //Object of class HTTPClient
-WiFiClient client;
-
-
 /*
 *------------------------------------------------------------------------------
 *  unsigned char ReadkeyUp(void)
@@ -338,7 +335,7 @@ void updateHeartBeat(void)
       state = (state)?0:1;
       digitalWrite(HB_LED_OUTPUT, state);
       //digitalWrite(BUZ_DRV_OUTPUT, state);      
-#if 0
+#if 1
     /*------------------------------------START--------------------------------------*/
     /* Auto incremental code for testing. Remove after actual implementation. */
       memset(DisplayBuff, 0x00, sizeof(DisplayBuff));
@@ -401,7 +398,8 @@ void updateHeartBeat(void)
     
   for(;count<1000; count=count+111){
     WiriteDispVal(count);
-    delay(400);
+    delay(100);
+    Serial.println(count);
   }
   WiriteDispVal(0);
 }
@@ -420,28 +418,40 @@ void updateHeartBeat(void)
 *------------------------------------------------------------------------------
 */
  void IoT_URL_ServerHandler(void){
+  String Payload;
+  int appointment_count = 0;
+  
   int httpCode = http.GET();
   //Check the returning code                                                                  
   if (httpCode > 0) {
     // Parsing
     const size_t bufferSize = JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(8) + 370;
     DynamicJsonBuffer jsonBuffer(bufferSize);
-    JsonObject& root = jsonBuffer.parseObject(http.getString());
-    // Parameters
-    int id = root["id"]; // 1
-    const char* name = root["name"]; // "Leanne Graham"
-    const char* username = root["username"]; // "Bret"
-    const char* email = root["email"]; // "Sincere@april.biz"
-#if DEBUG
-    // Output to serial monitor
-    Serial.print("Name:");
-    Serial.println(name);
-    Serial.print("Username:");
-    Serial.println(username);
-    Serial.print("Email:"); 
-    Serial.println(email);
-#endif
-    WiriteDispVal(999);
+    Payload = http.getString();
+    //Serial.println(Payload); 
+    
+    JsonObject& root = jsonBuffer.parseObject(Payload);
+    String sappointmentNumber = root["size"];
+    appointment_count = sappointmentNumber.toInt();
+    appointment_count;
+    
+    for(int i= 0; i < appointment_count; i++) //Check through all the appointment and find the appointment number.
+    {
+        String appointmentNumber = root["content"][i]["appointmentNumber"]; // "Leanne Graham"
+        String appointmentDate = root["content"][i]["appointmentDate"];
+    
+        
+    #if DEBUG
+        // Output to serial monitor
+        Serial.print("appointmentNumber:");
+        Serial.println(appointmentNumber);
+        Serial.print("appointmentDate:");
+        Serial.println(appointmentDate);
+    #endif
+        //Update the display number with appointment number which match to current time slot
+        // put if condition here
+        WiriteDispVal(appointmentNumber.toInt());
+    }
   }
  }
 
@@ -474,6 +484,7 @@ void IoT_ConnectionHandler(void) {
 #if DEBUG
     Serial.printf("Connecting to %s.\n", wifi_ssid);
 #endif
+	WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_ssid, wifi_pass);
     ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
     ConnectionCounter = 0;
@@ -482,13 +493,13 @@ void IoT_ConnectionHandler(void) {
   case IOT_AWAIT_WIFI_CONNECTION:
     if (WiFi.status() == WL_CONNECTED) {
 #if DEBUG
-      Serial.printf("Connected to %s", wifi_ssid);
+      Serial.printf("Connected to %s\n", wifi_ssid);
 #endif
       ConnectionState = IOT_CONNECT_TO_URL;
     }
     else if (++ConnectionCounter == 50) {
 #if DEBUG
-      Serial.printf("Unable to connect to %s. Retry connection.", wifi_ssid);
+      Serial.printf("Unable to connect to %s. Retry connection.\n", wifi_ssid);
 #endif
       WiFi.disconnect();
       ConnectionState = IOT_AWAIT_DISCONNECT;
@@ -498,38 +509,38 @@ void IoT_ConnectionHandler(void) {
 
   case IOT_CONNECT_TO_URL:
 #if DEBUG
-    Serial.printf("Attempt to connect to URL server.");
+    Serial.printf("Attempt to connect to URL server.\n");
 #endif
     // Make a HTTP request:
-    http.begin("http://jsonplaceholder.typicode.com/users/1");
     ConnectionState = IOT_AWAIT_URL_CONNECTION;
     ConnectionCounter = 0;
     break;
 
   case IOT_AWAIT_URL_CONNECTION:
-    if (http.connected()) {
+    if (http.begin(URL)) {
+      http.setAuthorization("admin","admin");
 #if DEBUG
-      Serial.printf("Connected to URL server.");
+      Serial.printf("Connected to URL server.\n");
 #endif
       ConnectionState = IOT_MAINTAIN_CONNECTIONS;
     }
-    else if (++ConnectionCounter == 50) {
+    else if (++ConnectionCounter == 150) {
 #if DEBUG
-      Serial.printf("Unable to connect to URL server. Retry connection.");
+      Serial.printf("Unable to connect to URL server. Retry connection.\n");
 #endif
       /*Both wifi and url not available disconnect and try reconnecting after retry*/
       http.end();
       WiFi.disconnect();
       ConnectionState = IOT_AWAIT_DISCONNECT;
       ConnectionCounter = 0;
-       WiriteDispVal(111); //Connected to Wifi but not connected to URL.
+
     }
     break;
 
   case IOT_MAINTAIN_CONNECTIONS:
     if (WiFi.status() != WL_CONNECTED) {
 #if DEBUG
-      Serial.printf("Wifi connection lost. Reconnect.");
+      Serial.printf("Wifi connection lost. Reconnect.\n");
 #endif
       /*Both wifi and url not available disconnect and try reconnecting after retry*/
       http.end();
@@ -537,15 +548,16 @@ void IoT_ConnectionHandler(void) {
       ConnectionState = IOT_AWAIT_DISCONNECT;
       ConnectionCounter = 0;
     }
-    else  if (!http.connected()) {
+    else  if (!http.begin(URL)) {
 #if DEBUG
-      Serial.printf("URL server connection lost. Reconnect.");
+      Serial.printf("URL server connection lost. Reconnect.\n");
 #endif
       http.end();
       ConnectionState = IOT_CONNECT_TO_URL;
     }
     else {
-      /*Call the log for handling data from server*/
+      
+      /*Call the log for handling data from server in every 5 sec interval timer close the timer and start again timer in every 5 sec*/
       IoT_URL_ServerHandler();
     }
     break;
@@ -554,7 +566,6 @@ void IoT_ConnectionHandler(void) {
     if (++ConnectionCounter == 10) {
       ConnectionState = IOT_CONNECT_TO_WIFI;
     }
-     WiriteDispVal(0);//Disconnect mode from URL and WIFI
     break;
   }
 }
@@ -580,7 +591,7 @@ void IoT_ConnectionHandler(void) {
 void setup()
 {
   Serial.begin(9600);
-  IoTConnectionHandlerTimer.setInterval(100, IoT_ConnectionHandler);
+  IoTConnectionHandlerTimer.setInterval(5000, IoT_ConnectionHandler);
   ConnectionState = IOT_CONNECT_TO_WIFI;
 
   String hostname("IoTDisplay-OTA-");
