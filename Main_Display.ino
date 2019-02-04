@@ -73,6 +73,9 @@
 *                      3. Display buffer and code for display.
 *                   Commited by: SAM
 * 
+* Version 1.1:
+*        Feb 4 2019: 1. removed time server/ added NTP server.
+*                    2. Added logic for display number whose current status is active.
 *----------------------------------------------------------------------------------------------
 */
 
