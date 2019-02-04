@@ -75,7 +75,7 @@
 * 
 * Version 1.1:
 *        Feb 4 2019: 1. removed time server/ added NTP server.
-*                    2. Added logic for display number whose current status is active.
+*                    
 *----------------------------------------------------------------------------------------------
 */
 
@@ -92,7 +92,8 @@
 #include <ESP8266HTTPClient.h> //Httpclient
 #include <ArduinoJson.h> //For JSON file formats
 #include <WiFiClient.h>  //for Wifi TCP client
-#include <TimeLib.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 /*
 *------------------------------------------------------------------------------
 * Private Defines
@@ -173,15 +174,6 @@ unsigned char     CHAR_CODE[]
 
 SimpleTimer IoTConnectionHandlerTimer;
 
-// NTP Servers:
-const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
-byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
-static const char ntpServerName[] = "us.pool.ntp.org";
-const int timeZone = 5; //For india + 5:30
-
-WiFiUDP Udp;
-unsigned int localPort = 8888;  // local port to listen for UDP packets
-
 // WiFi credentials.
 // Set password to "" for open networks.
 char wifi_ssid[] = "Airtel-B310-90C5";
@@ -202,6 +194,15 @@ HTTPClient http;  //Object of class HTTPClient
 
 time_t getNtpTime();
 void sendNTPpacket(IPAddress &address);
+
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
+
+// Variables to save date and time
+String formattedDate;
+String dayStamp;
+String timeStamp;
 
 /*
 *------------------------------------------------------------------------------
@@ -423,7 +424,6 @@ void updateHeartBeat(void)
  void IoT_URL_ServerHandler(void){
   String Payload;
   int no_of_appointment = 0;
-  String current_date_time;
   static int i=0;
 
   int httpCode = http.GET();
@@ -434,16 +434,14 @@ void updateHeartBeat(void)
     DynamicJsonBuffer jsonBuffer(bufferSize);
     Payload = http.getString();
     //Serial.println(Payload); 
+
+    getTimeStamp(); // First get the timestamp.
     
     JsonObject& root = jsonBuffer.parseObject(Payload);
     String sappointmentNumber = root["size"];
     no_of_appointment = sappointmentNumber.toInt();
 
     //Find first valid appointment first with current time.
-    current_date_time = String(year())+"-"+String(month())+"-"+String(day())+"T"+String(hour())+":"+String(minute())+":"+String(second());
-    Serial.print(current_date_time);
-    Serial.println();
-
     
     String appointmentNumber = root["content"][i]["appointmentNumber"];
     String appointmentDate = root["content"][i]["appointmentDate"];
@@ -580,70 +578,34 @@ void IoT_ConnectionHandler(void) {
   }
 }
 
-/*
- * -------------------------------------------------------------------------------------------
+/***********************************************************************************************
+ * Function: getTimeStamp
  * 
- * NTP code here
- * 
- * -------------------------------------------------------------------------------------------
- */
-time_t getNtpTime()
-{
-  IPAddress ntpServerIP; // NTP server's ip address
-
-  while (Udp.parsePacket() > 0) ; // discard any previously received packets
-  Serial.println("Transmit NTP Request");
-  // get a random server from the pool
-  WiFi.hostByName(ntpServerName, ntpServerIP);
-  Serial.print(ntpServerName);
-  Serial.print(": ");
-  Serial.println(ntpServerIP);
-  sendNTPpacket(ntpServerIP);
-  uint32_t beginWait = millis();
-  while (millis() - beginWait < 1500) {
-    int size = Udp.parsePacket();
-    if (size >= NTP_PACKET_SIZE) {
-      Serial.println("Receive NTP Response");
-      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
-      unsigned long secsSince1900;
-      // convert four bytes starting at location 40 to a long integer
-      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
-      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
-      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
-      secsSince1900 |= (unsigned long)packetBuffer[43];
-      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR + (30 * 60) ; //India zone is 5.30 minutes
-    }
+ * Description: 
+ *           This function get the NTPclient data display.
+ *           
+ * Parameters: void
+ * Return : void
+ ***********************************************************************************************/
+// Function to get date and time from NTPClient
+void getTimeStamp() {
+  while(!timeClient.update()) {
+    timeClient.forceUpdate();
   }
-  
-#if DEBUG
-  Serial.println("No NTP Response :-( Reconnect.\n");
-#endif
-  return 0; // return 0 if unable to get the time
-}
+  // The formattedDate comes with the following format:
+  // 2018-05-28T16:00:13Z
+  // We need to extract date and time
+  formattedDate = timeClient.getFormattedDate();
+  Serial.println(formattedDate);
 
-// send an NTP request to the time server at the given address
-void sendNTPpacket(IPAddress &address)
-{
-  // set all bytes in the buffer to 0
-  memset(packetBuffer, 0, NTP_PACKET_SIZE);
-  // Initialize values needed to form NTP request
-  // (see URL above for details on the packets)
-  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
-  packetBuffer[1] = 0;     // Stratum, or type of clock
-  packetBuffer[2] = 6;     // Polling Interval
-  packetBuffer[3] = 0xEC;  // Peer Clock Precision
-  // 8 bytes of zero for Root Delay & Root Dispersion
-  packetBuffer[12] = 49;
-  packetBuffer[13] = 0x4E;
-  packetBuffer[14] = 49;
-  packetBuffer[15] = 52;
-  // all NTP fields have been given values, now
-  // you can send a packet requesting a timestamp:
-  Udp.beginPacket(address, 123); //NTP requests are to port 123
-  Udp.write(packetBuffer, NTP_PACKET_SIZE);
-  Udp.endPacket();
+  // Extract date
+  int splitT = formattedDate.indexOf("T");
+  dayStamp = formattedDate.substring(0, splitT);
+  Serial.println(dayStamp);
+  // Extract time
+  timeStamp = formattedDate.substring(splitT+1, formattedDate.length()-1);
+  Serial.println(timeStamp);
 }
- 
 
 /*
 *---------------------------------------------------------------------------------------------- 
@@ -681,12 +643,21 @@ void setup()
   ArduinoOTA.setHostname((const char *)hostname.c_str());
   ArduinoOTA.begin();
   IoTConnectionHandlerTimer.setInterval(2000, IoT_ConnectionHandler);
-  Udp.begin(localPort);
-  setSyncProvider(getNtpTime);
-  setSyncInterval(200);
-  delay(500);
+
+  // Initialize a NTPClient to get time
+  timeClient.begin();
+  // Set offset time in seconds to adjust for your timezone, for example:
+  // GMT +1 = 3600
+  // GMT +5.30 = ((3600 * 5)+ (30*60))
+  // GMT +8 = 28800
+  // GMT -1 = -3600
+  // GMT 0 = 0
+  timeClient.setTimeOffset(((3600 * 5)+ (30*60)));
+  delay(200);
+  getTimeStamp();
 }
 /***********************************************************************************************/
+
 /***********************************************************************************************
  * Function: loop
  * 
