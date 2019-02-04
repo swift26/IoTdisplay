@@ -51,3 +51,11 @@ Version 1.0:
                       2. Keypress code
                       3. Display buffer and code for display.
          Commited by: SAM
+ 
+ Version 1.1:
+ 
+        Feb 2 2019:
+                     1. remove time server and add NTP server.
+                     2. Add switch logic from AP to station.
+                     3. Logic for parsing json and display number ( Data from original server)
+         Commited by : TK
