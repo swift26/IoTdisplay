@@ -75,7 +75,9 @@
 * 
 * Version 1.1:
 *        Feb 4 2019: 1. removed time server/ added NTP server.
-*                    
+*                    2. Added logic for display number whose current status is active.
+* Version 1.2:
+*	Feb 4 2019: 1. Untested logic for display number
 *----------------------------------------------------------------------------------------------
 */
 
@@ -158,6 +160,7 @@ unsigned long     lastDebounceTimeDec = 0;     // the last time the output pin w
 unsigned long     debounceDelay = 50;       // the debounce time; increase if the output flickers
 unsigned int      current_apmt_count = 0;
 
+
 unsigned char     CHAR_CODE[]
 = {
     0b01111011,0b01101111,    //0
@@ -201,8 +204,27 @@ NTPClient timeClient(ntpUDP);
 
 // Variables to save date and time
 String formattedDate;
-String dayStamp;
-String timeStamp;
+String currentdate;
+String currenttime;
+
+String appointmentDate;
+String appointmentday;
+String appointmentstarttime;
+
+String appointmentEndTime;
+String appointmentendtime;
+
+String appointmentStatus;
+String appointmentNumber;
+
+String      appointmenthour;
+String      appointmentminute;
+String      currentdate;
+String      currenthour; 
+String      currentminute;
+String      appointmentendhour;
+String      appointmentendminute;
+
 
 /*
 *------------------------------------------------------------------------------
@@ -407,7 +429,23 @@ void updateHeartBeat(void)
   }
   WiriteDispVal(0);
 }
-
+/*
+*------------------------------------------------------------------------------
+* Function: ExtractHourMinute
+* 
+* Description: 
+*           This function splits the time and extract hour and minutes
+* Parameters: String time
+*             int *hour
+*             int *minute
+* Return : void
+*------------------------------------------------------------------------------
+*/
+void ExtractHourMinute(String time, String *hour,String *minute){
+    int split = time.indexOf(":");
+    hour = time.substring(0, split);
+    minute = time.substring(split+1, time.indexOf(":",split+1));
+}
 /*
 *------------------------------------------------------------------------------
 * Function: IoT_URL_ServerHandler
@@ -424,45 +462,80 @@ void updateHeartBeat(void)
  void IoT_URL_ServerHandler(void){
   String Payload;
   int no_of_appointment = 0;
-  static int i=0;
+  int i=0;
 
   int httpCode = http.GET();
   //Check the returning code                                                                  
   if (httpCode > 0) {
-    // Parsing
+    
+    /* Step 1. Get the Payload first buffer size limitiation needs to be taken care as we are allocating dynamic buffer*/
     const size_t bufferSize = JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(6) + JSON_OBJECT_SIZE(9) + 6*JSON_OBJECT_SIZE(10) + 1620;
     DynamicJsonBuffer jsonBuffer(bufferSize);
     Payload = http.getString();
-    //Serial.println(Payload); 
+    //Serial.println(Payload); //Do not print the payload otherwise system would crash due to size
 
-    getTimeStamp(); // First get the timestamp.
-    
+    /* Step 2. Get the time stamp to compare with fetched data, need to separate out hour, minute and second*/
+    getTimeStamp();
+
+
+    /* Step 3. Read number of record in a day */
     JsonObject& root = jsonBuffer.parseObject(Payload);
     String sappointmentNumber = root["size"];
     no_of_appointment = sappointmentNumber.toInt();
 
-    //Find first valid appointment first with current time.
-    
-    String appointmentNumber = root["content"][i]["appointmentNumber"];
-    String appointmentDate = root["content"][i]["appointmentDate"];
-    current_apmt_count = appointmentNumber.toInt();
-    
-#if DEBUG
-    // Output to serial monitor
-    Serial.print("appointmentNumber:");
-    Serial.println(appointmentNumber);
-    Serial.print("appointmentDate:");
-    Serial.println(appointmentDate);
-#endif
-    //Update the display number with appointment number which match to current time slot
-    // put if condition here
-    WiriteDispVal(current_apmt_count);
-    i++;
-    if(i >= no_of_appointment)
-      i = 0;
+    /* Step 4. Parse record to find the time stamp , appointment starting time, end time and number*/
+    for(i = 0 ; i < no_of_appointment; i++ ){
+        /* Parse start date and start time*/
+        appointmentDate = root["content"][i]["appointmentDate"];
+        // Extract date
+        int splitT = appointmentDate.indexOf("T");
+        appointmentday = appointmentDate.substring(0, splitT);
+        Serial.println(appointmentday);
+        // Extract time
+        appointmentstarttime = appointmentDate.substring(splitT+1, appointmentDate.length()-1);
+        Serial.println(appointmentstarttime);
+        ExtractHourMinute(appointmentstarttime,&appointmenthour,&appointmentminute);
+
+        /* Parse start date and end time*/
+        appointmentEndTime = root["content"][i]["appointmentEndTime"];
+        // Extract date
+        splitT = appointmentEndTime.indexOf("T");
+        appointmentday = appointmentEndTime.substring(0, splitT);
+        Serial.println(appointmentday);
+        // Extract time
+        appointmentendtime = appointmentEndTime.substring(splitT+1, appointmentEndTime.length()-1);
+        Serial.println(appointmentendtime);
+
+        ExtractHourMinute(appointmentendtime,&appointmentendhour,&appointmentendminute);
+        
+        /* Read appointment status and appointment number*/
+        appointmentStatus = root["content"][i]["appointmentStatus"];
+        appointmentNumber = root["content"][i]["appointmentNumber"];
+
+        /* Step 5. If Time stamp is ( equal to current || (above current && minute is below end time)) && appointment is booked
+               then display the appointment number of that slot  otherwise display --- or 000 */
+        
+        /* validate appointment date */
+        if(appointmentday == currentdate){
+            /* validate appointment hour */
+            if( appointmenthour.toInt() >= currenthour.toInt() && currenthour.toInt() <= appointmentendhour.toInt()){
+                /*validate appointment minute */
+                if (appointmentminute.toInt() >= currentminute.toInt() && currentminute.toInt() < appointmentendminute.toInt()){
+                    if(appointmentStatus == "current"){
+                        current_apmt_count = appointmentNumber.toInt();
+                        WiriteDispVal(current_apmt_count);
+                        break;
+                    }
+                    else{
+                        WiriteDispVal(000);
+                        continue;
+                    }
+                }
+            }
+        }
+    }
   }
  }
-
 
 /*
 *-------------------------------------------------------------------------------
@@ -600,11 +673,14 @@ void getTimeStamp() {
 
   // Extract date
   int splitT = formattedDate.indexOf("T");
-  dayStamp = formattedDate.substring(0, splitT);
-  Serial.println(dayStamp);
+  currentdate = formattedDate.substring(0, splitT);
+  Serial.println(currentdate);
   // Extract time
-  timeStamp = formattedDate.substring(splitT+1, formattedDate.length()-1);
-  Serial.println(timeStamp);
+  currenttime = formattedDate.substring(splitT+1, formattedDate.length()-1);
+  Serial.println(currenttime);
+
+  ExtractHourMinute(currenttime,&currenthour,&currentminute);
+
 }
 
 /*
