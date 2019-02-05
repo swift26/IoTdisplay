@@ -77,11 +77,7 @@
 *        Feb 4 2019: 1. removed time server/ added NTP server.
 *                    2. Added logic for display number whose current status is active.
 * Version 1.2:
-*        Feb 4 2019: 1. Untested logic for display number
-* Version 1.3:
-*        Feb 6 2019: 1. Added NTPclient and parsing of data
-*                    2. First code with static username, password, static URL
-*                 Commited by: TK
+*  Feb 4 2019: 1. Untested logic for display number
 *----------------------------------------------------------------------------------------------
 */
 
@@ -113,7 +109,7 @@
 */
 #define DEBUG 1
 #define URL "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?date1=2019-02-06&date2=2019-02-07"
-
+#define URL_UPDATE  "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/aUpdate"
 #define  MAX_DATA_LEN               (6)
 #define  HB_INTERVAL                (1000)   /* 1000msec ON/OFF .*/
 
@@ -163,7 +159,7 @@ unsigned char     lastbuttonStateDec = LOW;    // the previous reading from the 
 unsigned long     lastDebounceTimeDec = 0;     // the last time the output pin was toggled
 unsigned long     debounceDelay = 50;       // the debounce time; increase if the output flickers
 unsigned int      current_apmt_count = 0;
-
+unsigned int      currentappointmentid = 0;
 
 unsigned char     CHAR_CODE[]
 = {
@@ -198,6 +194,7 @@ typedef enum {
 IOT_CONNECTION_STATE ConnectionState;
 uint8_t ConnectionCounter;
 HTTPClient http;  //Object of class HTTPClient
+HTTPClient http_put;
 
 time_t getNtpTime();
 void sendNTPpacket(IPAddress &address);
@@ -514,6 +511,7 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         /* Read appointment status and appointment number*/
         String appointmentStatus = root["content"][i]["appointmentStatus"];
         String appointmentNumber = root["content"][i]["appointmentNumber"];
+        
 
         /* Step 5. If Time stamp is ( equal to current || (above current && minute is below end time)) && appointment is booked
                then display the appointment number of that slot  otherwise display --- or 000 */
@@ -531,6 +529,8 @@ void ExtractHourMinute(String time, String &hour,String &minute){
                   //Serial.printf("minute matched \n");
                     if(appointmentStatus == "current"){
                         current_apmt_count = appointmentNumber.toInt();
+                        String appointmentID = root["content"][i]["appointmentId"];
+                        currentappointmentid = appointmentID.toInt();
                         Serial.printf("current_apmt_count = %d\n", current_apmt_count);
                         WiriteDispVal(current_apmt_count);
                         break;
@@ -609,6 +609,7 @@ void IoT_ConnectionHandler(void) {
   case IOT_AWAIT_URL_CONNECTION:
     if (http.begin(URL)) {
       http.setAuthorization("admin","admin");
+      http.begin(URL_UPDATE);
 #if DEBUG
       Serial.printf("Connected to URL server.\n");
 #endif
@@ -760,6 +761,14 @@ void loop()
   if(0 == ReadkeyUp())
   {
     current_apmt_count++;
+    currentappointmentid++;
+    DynamicJsonBuffer  jsonBuffer(50);
+    JsonObject& root = jsonBuffer.createObject();
+    root["appointmentID"] = currentappointmentid;
+    root["date1"] = currentdate;
+    String postData = "";
+    root.printTo(postData);
+    http.PUT(postData);
     WiriteDispVal(current_apmt_count);
     //add code to push to server to increment appointment count
     delay(400);      
@@ -768,6 +777,14 @@ void loop()
   if(0 == ReadkeyDn())
   {
     current_apmt_count--;
+    currentappointmentid--; 
+    DynamicJsonBuffer  jsonBuffer(50);
+    JsonObject& root = jsonBuffer.createObject();
+    root["appointmentID"] = currentappointmentid;
+    root["date1"] = currentdate;
+    String postData = "";
+    root.printTo(postData);
+    http.PUT(postData);
     WiriteDispVal(current_apmt_count);  
     //add code to push to server to increment appointment count    
     delay(400);
