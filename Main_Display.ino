@@ -77,7 +77,7 @@
 *        Feb 4 2019: 1. removed time server/ added NTP server.
 *                    2. Added logic for display number whose current status is active.
 * Version 1.2:
-*	Feb 4 2019: 1. Untested logic for display number
+*  Feb 4 2019: 1. Untested logic for display number
 *----------------------------------------------------------------------------------------------
 */
 
@@ -204,8 +204,6 @@ NTPClient timeClient(ntpUDP);
 
 // Variables to save date and time
 String formattedDate;
-String currentdate;
-String currenttime;
 
 String appointmentDate;
 String appointmentday;
@@ -220,6 +218,7 @@ String appointmentNumber;
 String      appointmenthour;
 String      appointmentminute;
 String      currentdate;
+String      currenttime;
 String      currenthour; 
 String      currentminute;
 String      appointmentendhour;
@@ -424,7 +423,7 @@ void updateHeartBeat(void)
     
   for(;count<1000; count=count+111){
     WiriteDispVal(count);
-    delay(100);
+    delay(500);
     Serial.println(count);
   }
   WiriteDispVal(0);
@@ -441,7 +440,7 @@ void updateHeartBeat(void)
 * Return : void
 *------------------------------------------------------------------------------
 */
-void ExtractHourMinute(String time, String *hour,String *minute){
+void ExtractHourMinute(String time, String &hour,String &minute){
     int split = time.indexOf(":");
     hour = time.substring(0, split);
     minute = time.substring(split+1, time.indexOf(":",split+1));
@@ -494,7 +493,7 @@ void ExtractHourMinute(String time, String *hour,String *minute){
         // Extract time
         appointmentstarttime = appointmentDate.substring(splitT+1, appointmentDate.length()-1);
         Serial.println(appointmentstarttime);
-        ExtractHourMinute(appointmentstarttime,&appointmenthour,&appointmentminute);
+        ExtractHourMinute(appointmentstarttime,appointmenthour,appointmentminute);
 
         /* Parse start date and end time*/
         appointmentEndTime = root["content"][i]["appointmentEndTime"];
@@ -506,7 +505,7 @@ void ExtractHourMinute(String time, String *hour,String *minute){
         appointmentendtime = appointmentEndTime.substring(splitT+1, appointmentEndTime.length()-1);
         Serial.println(appointmentendtime);
 
-        ExtractHourMinute(appointmentendtime,&appointmentendhour,&appointmentendminute);
+        ExtractHourMinute(appointmentendtime,appointmentendhour,appointmentendminute);
         
         /* Read appointment status and appointment number*/
         appointmentStatus = root["content"][i]["appointmentStatus"];
@@ -565,7 +564,7 @@ void IoT_ConnectionHandler(void) {
 #if DEBUG
     Serial.printf("Connecting to %s.\n", wifi_ssid);
 #endif
-	  WiFi.mode(WIFI_STA);
+    WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_ssid, wifi_pass);
     ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
     ConnectionCounter = 0;
@@ -679,7 +678,7 @@ void getTimeStamp() {
   currenttime = formattedDate.substring(splitT+1, formattedDate.length()-1);
   Serial.println(currenttime);
 
-  ExtractHourMinute(currenttime,&currenthour,&currentminute);
+  ExtractHourMinute(currenttime,currenthour,currentminute);
 
 }
 
