@@ -77,7 +77,11 @@
 *        Feb 4 2019: 1. removed time server/ added NTP server.
 *                    2. Added logic for display number whose current status is active.
 * Version 1.2:
-*  Feb 4 2019: 1. Untested logic for display number
+*        Feb 4 2019: 1. Untested logic for display number
+* Version 1.3:
+*        Feb 6 2019: 1. Added NTPclient and parsing of data
+*                    2. First code with static username, password, static URL
+*                 Commited by: TK
 *----------------------------------------------------------------------------------------------
 */
 
@@ -108,7 +112,7 @@
  *----------------------------------------------------------------------------------------------
 */
 #define DEBUG 1
-#define URL "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?date1=2018-12-23&date2=2019-01-23"
+#define URL "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?date1=2019-02-06&date2=2019-02-07"
 
 #define  MAX_DATA_LEN               (6)
 #define  HB_INTERVAL                (1000)   /* 1000msec ON/OFF .*/
@@ -205,15 +209,15 @@ NTPClient timeClient(ntpUDP);
 // Variables to save date and time
 String formattedDate;
 
-String appointmentDate;
+//String appointmentDate;
 String appointmentday;
 String appointmentstarttime;
 
-String appointmentEndTime;
+//String appointmentEndTime;
 String appointmentendtime;
 
-String appointmentStatus;
-String appointmentNumber;
+//String appointmentStatus;
+//String appointmentNumber;
 
 String      appointmenthour;
 String      appointmentminute;
@@ -485,31 +489,31 @@ void ExtractHourMinute(String time, String &hour,String &minute){
     /* Step 4. Parse record to find the time stamp , appointment starting time, end time and number*/
     for(i = 0 ; i < no_of_appointment; i++ ){
         /* Parse start date and start time*/
-        appointmentDate = root["content"][i]["appointmentDate"];
+        String appointmentDate = root["content"][i]["appointmentDate"];
         // Extract date
         int splitT = appointmentDate.indexOf("T");
         appointmentday = appointmentDate.substring(0, splitT);
-        Serial.println(appointmentday);
+        //Serial.println(appointmentday);
         // Extract time
         appointmentstarttime = appointmentDate.substring(splitT+1, appointmentDate.length()-1);
-        Serial.println(appointmentstarttime);
+        //Serial.println(appointmentstarttime);
         ExtractHourMinute(appointmentstarttime,appointmenthour,appointmentminute);
 
         /* Parse start date and end time*/
-        appointmentEndTime = root["content"][i]["appointmentEndTime"];
+        String appointmentEndTime = root["content"][i]["appointmentEndTime"];
         // Extract date
         splitT = appointmentEndTime.indexOf("T");
         appointmentday = appointmentEndTime.substring(0, splitT);
-        Serial.println(appointmentday);
+        //Serial.println(appointmentday);
         // Extract time
         appointmentendtime = appointmentEndTime.substring(splitT+1, appointmentEndTime.length()-1);
-        Serial.println(appointmentendtime);
+        //Serial.println(appointmentendtime);
 
         ExtractHourMinute(appointmentendtime,appointmentendhour,appointmentendminute);
         
         /* Read appointment status and appointment number*/
-        appointmentStatus = root["content"][i]["appointmentStatus"];
-        appointmentNumber = root["content"][i]["appointmentNumber"];
+        String appointmentStatus = root["content"][i]["appointmentStatus"];
+        String appointmentNumber = root["content"][i]["appointmentNumber"];
 
         /* Step 5. If Time stamp is ( equal to current || (above current && minute is below end time)) && appointment is booked
                then display the appointment number of that slot  otherwise display --- or 000 */
@@ -517,11 +521,17 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         /* validate appointment date */
         if(appointmentday == currentdate){
             /* validate appointment hour */
-            if( appointmenthour.toInt() >= currenthour.toInt() && currenthour.toInt() <= appointmentendhour.toInt()){
+            //Serial.printf("date matched \n");
+            if( currenthour.toInt() >= appointmenthour.toInt()  && currenthour.toInt() <= appointmentendhour.toInt()){
                 /*validate appointment minute */
-                if (appointmentminute.toInt() >= currentminute.toInt() && currentminute.toInt() < appointmentendminute.toInt()){
+                //Serial.printf("hour matched \n");
+                //Serial.printf("appointment minutes %d\n", appointmentminute.toInt());
+                //Serial.printf("Current minutes %d\n", currentminute.toInt());
+                if (currentminute.toInt() >= appointmentminute.toInt() && currentminute.toInt() < appointmentendminute.toInt()){
+                  //Serial.printf("minute matched \n");
                     if(appointmentStatus == "current"){
                         current_apmt_count = appointmentNumber.toInt();
+                        Serial.printf("current_apmt_count = %d\n", current_apmt_count);
                         WiriteDispVal(current_apmt_count);
                         break;
                     }
@@ -668,15 +678,15 @@ void getTimeStamp() {
   // 2018-05-28T16:00:13Z
   // We need to extract date and time
   formattedDate = timeClient.getFormattedDate();
-  Serial.println(formattedDate);
+  //Serial.println(formattedDate);
 
   // Extract date
   int splitT = formattedDate.indexOf("T");
   currentdate = formattedDate.substring(0, splitT);
-  Serial.println(currentdate);
+  //Serial.println(currentdate);
   // Extract time
   currenttime = formattedDate.substring(splitT+1, formattedDate.length()-1);
-  Serial.println(currenttime);
+  //Serial.println(currenttime);
 
   ExtractHourMinute(currenttime,currenthour,currentminute);
 
