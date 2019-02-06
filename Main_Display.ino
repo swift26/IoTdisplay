@@ -160,7 +160,9 @@ unsigned long     lastDebounceTimeDec = 0;     // the last time the output pin w
 unsigned long     debounceDelay = 50;       // the debounce time; increase if the output flickers
 unsigned int      current_apmt_count = 0;
 unsigned int      currentappointmentid = 0;
-
+unsigned int      previousappointmentID = 0;
+unsigned int      nextappointmentID = 1;
+unsigned int      serial_byte = 0;
 unsigned char     CHAR_CODE[]
 = {
     0b01111011,0b01101111,    //0
@@ -230,6 +232,7 @@ String      appointmentendhour;
 String      appointmentendminute;
 String url;
 String URL_1 = "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?";
+
 
 
 /*
@@ -488,7 +491,7 @@ void ExtractHourMinute(String time, String &hour,String &minute){
     JsonObject& root = jsonBuffer.parseObject(Payload);
     String sappointmentNumber = root["numberOfElements"];
     no_of_appointment = sappointmentNumber.toInt();
-    Serial.println(no_of_appointment);
+    //Serial.println(no_of_appointment);
     /* Step 4. Parse record to find the time stamp , appointment starting time, end time and number*/
     for(i = 0 ; i < no_of_appointment; i++ ){
         /* Parse start date and start time*/
@@ -496,10 +499,10 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         // Extract date
         int splitT = appointmentDate.indexOf("T");
         appointmentday = appointmentDate.substring(0, splitT);
-        Serial.println(appointmentday);
+        //Serial.println(appointmentday);
         // Extract time
         appointmentstarttime = appointmentDate.substring(splitT+1, appointmentDate.length()-1);
-        Serial.println(appointmentstarttime);
+        //Serial.println(appointmentstarttime);
         ExtractHourMinute(appointmentstarttime,appointmenthour,appointmentminute);
 
         /* Parse start date and end time*/
@@ -507,10 +510,10 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         // Extract date
         splitT = appointmentEndTime.indexOf("T");
         appointmentday = appointmentEndTime.substring(0, splitT);
-        Serial.println(appointmentday);
+        //Serial.println(appointmentday);
         // Extract time
         appointmentendtime = appointmentEndTime.substring(splitT+1, appointmentEndTime.length()-1);
-        Serial.println(appointmentendtime);
+        //Serial.println(appointmentendtime);
 
         ExtractHourMinute(appointmentendtime,appointmentendhour,appointmentendminute);
         
@@ -524,18 +527,22 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         /* validate appointment date */
         if(appointmentday == currentdate){
             /* validate appointment hour */
-            Serial.printf("date matched \n");
+            //Serial.printf("date matched \n");
             if( currenthour.toInt() >= appointmenthour.toInt()  && currenthour.toInt() <= appointmentendhour.toInt()){
                 /*validate appointment minute */
-                Serial.printf("hour matched \n");
-                Serial.printf("appointment minutes %d\n", appointmentminute.toInt());
-                Serial.printf("Current minutes %d\n", currentminute.toInt());
+                //Serial.printf("hour matched \n");
+                //Serial.printf("appointment minutes %d\n", appointmentminute.toInt());
+                //Serial.printf("Current minutes %d\n", currentminute.toInt());
                 if (currentminute.toInt() >= appointmentminute.toInt()){
-                  Serial.printf("minute matched \n");
+                  //Serial.printf("minute matched \n");
                     if(appointmentStatus == "current"){
                         current_apmt_count = appointmentNumber.toInt();
                         String appointmentID = root["content"][i]["appointmentId"];
                         currentappointmentid = appointmentID.toInt();
+                        String previousapmtID = root["content"][i-1]["appointmentId"];
+                        previousappointmentID = previousapmtID.toInt();
+                        String nextapmtID = root["content"][i+1]["appointmentId"];
+                        nextappointmentID = nextapmtID.toInt();
                         Serial.printf("appointmentNumber = %d\n", current_apmt_count);
                         WiriteDispVal(current_apmt_count);
                         break;
@@ -659,7 +666,7 @@ void IoT_ConnectionHandler(void) {
     else {
       
       /*Call the log for handling data from server in every 5 sec interval timer close the timer and start again timer in every 5 sec*/
-      Serial.printf("IoT_URL_ServerHandler called\n");
+      //Serial.printf("IoT_URL_ServerHandler called\n");
       IoT_URL_ServerHandler();
     }
     break;
@@ -698,9 +705,9 @@ void getnextdate(String &currentdate,String &nextdate)
     int year = currentyear.toInt();
     int month = currentmonth.toInt();
     int day = currentday.toInt();
-Serial.println(year);
-Serial.println(month);
-Serial.println(day);
+//Serial.println(year);
+//Serial.println(month);
+//Serial.println(day);
 
     int leap = (year % 4 == 0);
     day++; //increment one day
@@ -825,13 +832,17 @@ void loop()
   ArduinoOTA.handle();
   IoTConnectionHandlerTimer.run();
   updateHeartBeat();
-  if(0 == ReadkeyUp())
+  if (Serial.available() > 0) {
+      // read the incoming byte:
+       serial_byte = Serial.read();
+  }
+      
+  if(43 == serial_byte || 0 == ReadkeyUp())
   {
     current_apmt_count++;
-    currentappointmentid++;
     DynamicJsonBuffer  jsonBuffer(50);
     JsonObject& root2 = jsonBuffer.createObject();
-    root2["appointmentID"] = currentappointmentid;
+    root2["appointmentID"] =   nextappointmentID;
     root2["date1"] = currentdate;
     root2["date2"] = nextdate;
     String postData = "";
@@ -839,23 +850,29 @@ void loop()
     http_put.PUT(postData);
     WiriteDispVal(current_apmt_count);
     //add code to push to server to increment appointment count
+    Serial.println(String(serial_byte));
+    Serial.println(postData);
+    serial_byte = 0; 
     delay(500);      
   }
   
-  if(0 == ReadkeyDn())
+  if(45 == serial_byte || 0 == ReadkeyDn())
   {
     current_apmt_count--;
-    currentappointmentid--; 
     DynamicJsonBuffer  jsonBuffer(50);
     JsonObject& root1 = jsonBuffer.createObject();
-    root1["appointmentID"] = currentappointmentid;
+    root1["appointmentID"] = previousappointmentID;
     root1["date1"] = currentdate;
     root1["date2"] = nextdate;
     String postData = "";
     root1.printTo(postData);
     http_put.PUT(postData);
     WiriteDispVal(current_apmt_count);  
-    //add code to push to server to increment appointment count    
+    //add code to push to server to increment appointment count 
+    Serial.println(String(serial_byte)); 
+    Serial.println(postData);
+    serial_byte = 0;  
     delay(500);
-  }    
+  }      
+    
 }
