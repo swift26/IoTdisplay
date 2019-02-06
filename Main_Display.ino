@@ -228,6 +228,7 @@ String      currentminute;
 String      nextdate;
 String      appointmentendhour;
 String      appointmentendminute;
+String url;
 
 
 
@@ -485,9 +486,9 @@ void ExtractHourMinute(String time, String &hour,String &minute){
 
     /* Step 3. Read number of record in a day */
     JsonObject& root = jsonBuffer.parseObject(Payload);
-    String sappointmentNumber = root["size"];
+    String sappointmentNumber = root["numberOfElements"];
     no_of_appointment = sappointmentNumber.toInt();
-
+    Serial.println(no_of_appointment);
     /* Step 4. Parse record to find the time stamp , appointment starting time, end time and number*/
     for(i = 0 ; i < no_of_appointment; i++ ){
         /* Parse start date and start time*/
@@ -495,10 +496,10 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         // Extract date
         int splitT = appointmentDate.indexOf("T");
         appointmentday = appointmentDate.substring(0, splitT);
-        //Serial.println(appointmentday);
+        Serial.println(appointmentday);
         // Extract time
         appointmentstarttime = appointmentDate.substring(splitT+1, appointmentDate.length()-1);
-        //Serial.println(appointmentstarttime);
+        Serial.println(appointmentstarttime);
         ExtractHourMinute(appointmentstarttime,appointmenthour,appointmentminute);
 
         /* Parse start date and end time*/
@@ -506,10 +507,10 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         // Extract date
         splitT = appointmentEndTime.indexOf("T");
         appointmentday = appointmentEndTime.substring(0, splitT);
-        //Serial.println(appointmentday);
+        Serial.println(appointmentday);
         // Extract time
         appointmentendtime = appointmentEndTime.substring(splitT+1, appointmentEndTime.length()-1);
-        //Serial.println(appointmentendtime);
+        Serial.println(appointmentendtime);
 
         ExtractHourMinute(appointmentendtime,appointmentendhour,appointmentendminute);
         
@@ -524,14 +525,14 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         /* validate appointment date */
         if(appointmentday == currentdate){
             /* validate appointment hour */
-            //Serial.printf("date matched \n");
+            Serial.printf("date matched \n");
             if( currenthour.toInt() >= appointmenthour.toInt()  && currenthour.toInt() <= appointmentendhour.toInt()){
                 /*validate appointment minute */
-                //Serial.printf("hour matched \n");
-                //Serial.printf("appointment minutes %d\n", appointmentminute.toInt());
-                //Serial.printf("Current minutes %d\n", currentminute.toInt());
+                Serial.printf("hour matched \n");
+                Serial.printf("appointment minutes %d\n", appointmentminute.toInt());
+                Serial.printf("Current minutes %d\n", currentminute.toInt());
                 if (currentminute.toInt() >= appointmentminute.toInt() && currentminute.toInt() < appointmentendminute.toInt()){
-                  //Serial.printf("minute matched \n");
+                  Serial.printf("minute matched \n");
                     if(appointmentStatus == "current"){
                         current_apmt_count = appointmentNumber.toInt();
                         String appointmentID = root["content"][i]["appointmentId"];
@@ -614,11 +615,12 @@ void IoT_ConnectionHandler(void) {
   case IOT_AWAIT_URL_CONNECTION:
     getTimeStamp();
     getnextdate(currentdate,nextdate);
-    String url = URL+"date1"+currentdate+"&"+"date2"+nextdate;
+    url = String(URL) + "date1=" + currentdate + "&" + "date2=" + nextdate;
     if (http.begin(url)) {
       http.setAuthorization("admin","admin");
       http.begin(URL_UPDATE);
 #if DEBUG
+      Serial.println(url);
       Serial.printf("Connected to URL server.\n");
 #endif
       ConnectionState = IOT_MAINTAIN_CONNECTIONS;
@@ -657,6 +659,7 @@ void IoT_ConnectionHandler(void) {
     else {
       
       /*Call the log for handling data from server in every 5 sec interval timer close the timer and start again timer in every 5 sec*/
+      Serial.printf("IoT_URL_ServerHandler called\n");
       IoT_URL_ServerHandler();
     }
     break;
@@ -687,15 +690,18 @@ void getnextdate(String &currentdate,String &nextdate)
         {0,31,29,31,30,31,30,31,31,30,31,30,31}
     };
 
-    int splitY = currentdate.indexOf(":");
+    int splitY = currentdate.indexOf("-");
     currentyear = currentdate.substring(0, splitY);
-    int splitM = currentdate.indexOf(":",splitY+1);
+    int splitM = currentdate.indexOf("-",splitY+1);
     currentmonth = currentdate.substring(splitY+1, splitM);
-    int splitD = currentdate.indexOf(":",splitM);
-    currentday = currentdate.substring(splitM+1, currentdate.length()-1);
+    currentday = currentdate.substring(splitM+1, currentdate.length());
     int year = currentyear.toInt();
     int month = currentmonth.toInt();
     int day = currentday.toInt();
+Serial.println(year);
+Serial.println(month);
+Serial.println(day);
+
     int leap = (year % 4 == 0);
     day++; //increment one day
     if (year % 100 == 0 && year % 400 !=0)
@@ -707,13 +713,13 @@ void getnextdate(String &currentdate,String &nextdate)
         day = 1;
         month = 1;
     }
-    elseif ( day > daytotal && month < 12)
+    else if ( day > daytotal && month < 12)
     {
         day = 1;
         month++;
     }
     //create the date string.
-    nextdate = String(year) + "-" + String(month) + "-" + String(date);
+    nextdate = String(year) + "-" + String(month) + "-" + String(day);
 }
 /***********************************************************************************************
  * Function: getTimeStamp
@@ -733,15 +739,15 @@ void getTimeStamp() {
   // 2018-05-28T16:00:13Z
   // We need to extract date and time
   formattedDate = timeClient.getFormattedDate();
-  //Serial.println(formattedDate);
+  Serial.println(formattedDate);
 
   // Extract date
   int splitT = formattedDate.indexOf("T");
   currentdate = formattedDate.substring(0, splitT);
-  //Serial.println(currentdate);
+  Serial.println(currentdate);
   // Extract time
   currenttime = formattedDate.substring(splitT+1, formattedDate.length()-1);
-  //Serial.println(currenttime);
+  Serial.println(currenttime);
 
   ExtractHourMinute(currenttime,currenthour,currentminute);
 
