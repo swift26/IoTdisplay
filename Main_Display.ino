@@ -108,7 +108,7 @@
  *----------------------------------------------------------------------------------------------
 */
 #define DEBUG 1
-#define URL "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?"
+
 #define URL_UPDATE  "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/aUpdate"
 #define  MAX_DATA_LEN               (6)
 #define  HB_INTERVAL                (1000)   /* 1000msec ON/OFF .*/
@@ -229,7 +229,7 @@ String      nextdate;
 String      appointmentendhour;
 String      appointmentendminute;
 String url;
-
+String URL_1 = "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?";
 
 
 /*
@@ -517,7 +517,6 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         /* Read appointment status and appointment number*/
         String appointmentStatus = root["content"][i]["appointmentStatus"];
         String appointmentNumber = root["content"][i]["appointmentNumber"];
-        
 
         /* Step 5. If Time stamp is ( equal to current || (above current && minute is below end time)) && appointment is booked
                then display the appointment number of that slot  otherwise display --- or 000 */
@@ -531,13 +530,13 @@ void ExtractHourMinute(String time, String &hour,String &minute){
                 Serial.printf("hour matched \n");
                 Serial.printf("appointment minutes %d\n", appointmentminute.toInt());
                 Serial.printf("Current minutes %d\n", currentminute.toInt());
-                if (currentminute.toInt() >= appointmentminute.toInt() && currentminute.toInt() < appointmentendminute.toInt()){
+                if (currentminute.toInt() >= appointmentminute.toInt()){
                   Serial.printf("minute matched \n");
                     if(appointmentStatus == "current"){
                         current_apmt_count = appointmentNumber.toInt();
                         String appointmentID = root["content"][i]["appointmentId"];
                         currentappointmentid = appointmentID.toInt();
-                        Serial.printf("current_apmt_count = %d\n", current_apmt_count);
+                        Serial.printf("appointmentNumber = %d\n", current_apmt_count);
                         WiriteDispVal(current_apmt_count);
                         break;
                     }
@@ -615,12 +614,13 @@ void IoT_ConnectionHandler(void) {
   case IOT_AWAIT_URL_CONNECTION:
     getTimeStamp();
     getnextdate(currentdate,nextdate);
-    url = String(URL) + "date1=" + currentdate + "&" + "date2=" + nextdate;
+    url = URL_1 + "date1=" + currentdate + "&" + "date2=" + nextdate;
     if (http.begin(url)) {
       http.setAuthorization("admin","admin");
-      http.begin(URL_UPDATE);
+      http_put.begin(URL_UPDATE);
 #if DEBUG
       Serial.println(url);
+      http.setAuthorization("admin","admin");
       Serial.printf("Connected to URL server.\n");
 #endif
       ConnectionState = IOT_MAINTAIN_CONNECTIONS;
@@ -649,7 +649,7 @@ void IoT_ConnectionHandler(void) {
       ConnectionState = IOT_AWAIT_DISCONNECT;
       ConnectionCounter = 0;
     }
-    else  if (!http.begin(URL)) {
+    else  if (!http.begin(url)) {
 #if DEBUG
       Serial.printf("URL server connection lost. Reconnect.\n");
 #endif
@@ -719,7 +719,14 @@ Serial.println(day);
         month++;
     }
     //create the date string.
-    nextdate = String(year) + "-" + String(month) + "-" + String(day);
+    if(month < 10)
+      nextdate = String(year) + "-0" + String(month);
+    else
+      nextdate = String(year) + "-" + String(month);
+    if(day < 10)
+      nextdate = nextdate + "-0" + String(day);
+    else
+      nextdate = nextdate + "-" + String(day);
 }
 /***********************************************************************************************
  * Function: getTimeStamp
@@ -739,15 +746,15 @@ void getTimeStamp() {
   // 2018-05-28T16:00:13Z
   // We need to extract date and time
   formattedDate = timeClient.getFormattedDate();
-  Serial.println(formattedDate);
+  //Serial.println(formattedDate);
 
   // Extract date
   int splitT = formattedDate.indexOf("T");
   currentdate = formattedDate.substring(0, splitT);
-  Serial.println(currentdate);
+  //Serial.println(currentdate);
   // Extract time
   currenttime = formattedDate.substring(splitT+1, formattedDate.length()-1);
-  Serial.println(currenttime);
+  //Serial.println(currenttime);
 
   ExtractHourMinute(currenttime,currenthour,currentminute);
 
@@ -788,7 +795,7 @@ void setup()
   hostname += String(ESP.getChipId(), HEX);
   ArduinoOTA.setHostname((const char *)hostname.c_str());
   ArduinoOTA.begin();
-  
+  IoTConnectionHandlerTimer.setInterval(2000, IoT_ConnectionHandler);
 
   // Initialize a NTPClient to get time
   timeClient.begin();
@@ -800,8 +807,7 @@ void setup()
   // GMT 0 = 0
   timeClient.setTimeOffset(((3600 * 5)+ (30*60)));
   delay(200);
-  getTimeStamp();// Just to make sure we are getting data from NTPclient.
-  IoTConnectionHandlerTimer.setInterval(2000, IoT_ConnectionHandler);
+  getTimeStamp();
 }
 /***********************************************************************************************/
 
@@ -824,13 +830,13 @@ void loop()
     current_apmt_count++;
     currentappointmentid++;
     DynamicJsonBuffer  jsonBuffer(50);
-    JsonObject& root = jsonBuffer.createObject();
-    root["appointmentID"] = currentappointmentid;
-    root["date1"] = currentdate;
-    root["date2"] = nextdate;
+    JsonObject& root2 = jsonBuffer.createObject();
+    root2["appointmentID"] = currentappointmentid;
+    root2["date1"] = currentdate;
+    root2["date2"] = nextdate;
     String postData = "";
-    root.printTo(postData);
-    http.PUT(postData);
+    root2.printTo(postData);
+    http_put.PUT(postData);
     WiriteDispVal(current_apmt_count);
     //add code to push to server to increment appointment count
     delay(500);      
@@ -841,13 +847,13 @@ void loop()
     current_apmt_count--;
     currentappointmentid--; 
     DynamicJsonBuffer  jsonBuffer(50);
-    JsonObject& root = jsonBuffer.createObject();
-    root["appointmentID"] = currentappointmentid;
-    root["date1"] = currentdate;
-    root["date2"] = nextdate;
+    JsonObject& root1 = jsonBuffer.createObject();
+    root1["appointmentID"] = currentappointmentid;
+    root1["date1"] = currentdate;
+    root1["date2"] = nextdate;
     String postData = "";
-    root.printTo(postData);
-    http.PUT(postData);
+    root1.printTo(postData);
+    http_put.PUT(postData);
     WiriteDispVal(current_apmt_count);  
     //add code to push to server to increment appointment count    
     delay(500);
