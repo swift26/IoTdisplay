@@ -108,7 +108,7 @@
  *----------------------------------------------------------------------------------------------
 */
 #define DEBUG 1
-#define URL "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?date1=2019-02-06&date2=2019-02-07"
+#define URL "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/appointmentQuery?"
 #define URL_UPDATE  "http://pkmcjr6nhmkq.cloud.wavemakeronline.com/repo_15s/services/fifteens/queryExecutor/queries/aUpdate"
 #define  MAX_DATA_LEN               (6)
 #define  HB_INTERVAL                (1000)   /* 1000msec ON/OFF .*/
@@ -219,11 +219,16 @@ String appointmentendtime;
 String      appointmenthour;
 String      appointmentminute;
 String      currentdate;
+String      currentyear;
+String      currentmonth;
+String      currentday;
 String      currenttime;
-String      currenthour; 
+String      currenthour;
 String      currentminute;
+String      nextdate;
 String      appointmentendhour;
 String      appointmentendminute;
+
 
 
 /*
@@ -607,7 +612,10 @@ void IoT_ConnectionHandler(void) {
     break;
 
   case IOT_AWAIT_URL_CONNECTION:
-    if (http.begin(URL)) {
+    getTimeStamp();
+    getnextdate(currentdate,nextdate);
+    String url = URL+"date1"+currentdate+"&"+"date2"+nextdate;
+    if (http.begin(url)) {
       http.setAuthorization("admin","admin");
       http.begin(URL_UPDATE);
 #if DEBUG
@@ -661,6 +669,52 @@ void IoT_ConnectionHandler(void) {
   }
 }
 
+/***********************************************************************************************
+ * Function: getnextdate
+ * 
+ * Description: 
+ *           This function get the next date of current date.
+ *           
+ * Parameters: String &currentdate
+ *             String &nextdate
+ * Return : void
+ ***********************************************************************************************/
+void getnextdate(String &currentdate,String &nextdate)
+{
+    static char daytab[2][13]=
+    {
+        {0,31,28,31,30,31,30,31,31,30,31,30,31},
+        {0,31,29,31,30,31,30,31,31,30,31,30,31}
+    };
+
+    int splitY = currentdate.indexOf(":");
+    currentyear = currentdate.substring(0, splitY);
+    int splitM = currentdate.indexOf(":",splitY+1);
+    currentmonth = currentdate.substring(splitY+1, splitM);
+    int splitD = currentdate.indexOf(":",splitM);
+    currentday = currentdate.substring(splitM+1, currentdate.length()-1);
+    int year = currentyear.toInt();
+    int month = currentmonth.toInt();
+    int day = currentday.toInt();
+    int leap = (year % 4 == 0);
+    day++; //increment one day
+    if (year % 100 == 0 && year % 400 !=0)
+        leap = 0;
+    int daytotal = daytab[leap][month];
+    if(day > daytotal && month == 12)
+    {
+        year++;
+        day = 1;
+        month = 1;
+    }
+    elseif ( day > daytotal && month < 12)
+    {
+        day = 1;
+        month++;
+    }
+    //create the date string.
+    nextdate = String(year) + "-" + String(month) + "-" + String(date);
+}
 /***********************************************************************************************
  * Function: getTimeStamp
  * 
@@ -728,7 +782,7 @@ void setup()
   hostname += String(ESP.getChipId(), HEX);
   ArduinoOTA.setHostname((const char *)hostname.c_str());
   ArduinoOTA.begin();
-  IoTConnectionHandlerTimer.setInterval(2000, IoT_ConnectionHandler);
+  
 
   // Initialize a NTPClient to get time
   timeClient.begin();
@@ -740,7 +794,8 @@ void setup()
   // GMT 0 = 0
   timeClient.setTimeOffset(((3600 * 5)+ (30*60)));
   delay(200);
-  getTimeStamp();
+  getTimeStamp();// Just to make sure we are getting data from NTPclient.
+  IoTConnectionHandlerTimer.setInterval(2000, IoT_ConnectionHandler);
 }
 /***********************************************************************************************/
 
@@ -766,12 +821,13 @@ void loop()
     JsonObject& root = jsonBuffer.createObject();
     root["appointmentID"] = currentappointmentid;
     root["date1"] = currentdate;
+    root["date2"] = nextdate;
     String postData = "";
     root.printTo(postData);
     http.PUT(postData);
     WiriteDispVal(current_apmt_count);
     //add code to push to server to increment appointment count
-    delay(400);      
+    delay(500);      
   }
   
   if(0 == ReadkeyDn())
@@ -782,11 +838,12 @@ void loop()
     JsonObject& root = jsonBuffer.createObject();
     root["appointmentID"] = currentappointmentid;
     root["date1"] = currentdate;
+    root["date2"] = nextdate;
     String postData = "";
     root.printTo(postData);
     http.PUT(postData);
     WiriteDispVal(current_apmt_count);  
     //add code to push to server to increment appointment count    
-    delay(400);
+    delay(500);
   }    
 }
