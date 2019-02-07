@@ -99,12 +99,10 @@
 #include <WiFiClient.h>  //for Wifi TCP client
 #include <NTPClient.h>   //for NTP client
 #include <WiFiUdp.h>     //for NTP client
-#include <EEPROM.h>      //For EEEPROM library inclusion
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
 
-extern "C"{
-#include "spi_flash.h"
-#include "ets_sys.h"
-}
 /*
 *------------------------------------------------------------------------------
 * Private Defines
@@ -834,59 +832,6 @@ void getTimeStamp() {
 
 }
 
-// ***************************************************************************
-// EEPROM helper
-// ***************************************************************************
-String readEEPROM(int offset, int len) {
-  String res = "";
-  for (int i = 0; i < len; ++i)
-  {
-    res += char(EEPROM.read(i + offset));
-  }
-  return res;
-#if DEBUG
-      Serial.print(res);
-#endif
-}
-
-void writeEEPROM(int offset, int len, String value) {
-  for (int i = 0; i < len; ++i)
-  {
-    if (i < value.length()) {
-      EEPROM.write(i + offset, value[i]);
-    } else {
-      EEPROM.write(i + offset, NULL);
-    }
-  }
-}
-
-/*
-*---------------------------------------------------------------------------------------------- 
-* Function: FactoryReset
-* 
-* Description: 
-*           This function is would reset all the default configuration
-*           
-* Parameters: void
-* Return : void
-*
-*------------------------------------------------------------------------------
-*/
-void FactoryReset(void){
-      
-    //reset eeprom
-    for (int i = 0; i < 512; i++)
-        EEPROM.write(i, 0);
-    EEPROM.commit();
-    delay(1000);
-    //config init
-    ETS_UART_INTR_DISABLE();
-    spi_flash_erase_sector(0x7E);
-    ETS_UART_INTR_ENABLE();
-    
-    ESP.reset();
-    delay(1000);
-}
 /*
 *---------------------------------------------------------------------------------------------- 
 * Function: setup
@@ -906,20 +851,29 @@ void FactoryReset(void){
  
 void setup()
 {
-  int count=0;
   Serial.begin(9600);
   LedInitialWalk();
+
+  // Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+
   if(0 == ReadkeyFact())
-    FactoryReset();
-  EEPROM.begin(512);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(wifi_ssid, wifi_pass);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
-    Serial.print(".");
-    WiriteDispVal(count++); //While trying to connect display 0 1 2 3 4 5 etc .. needs to be replaced with moving led pattern.
+  {
+    wifiManager.resetSettings();
+    ESP.reset();
+    delay(2000);
   }
-  count = 0;
+
+  // set custom ip for portal
+  wifiManager.setAPConfig(IPAddress(10,0,1,53), IPAddress(10,0,1,53), IPAddress(255,255,255,0));
+
+  // fetches ssid and pass from eeprom and tries to connect
+  // if it does not connect it starts an access point with the specified name
+  // here  "lyvtheoryAP"
+  // and goes into a blocking loop awaiting configuration
+  wifiManager.autoConnect("lyvtheoryAP");
+  Serial.println("Connected..... to router");
+
   ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
   String hostname("IoTDisplay-OTA-");
   hostname += String(ESP.getChipId(), HEX);
@@ -996,11 +950,6 @@ void loop()
     Serial.println(postData);
     serial_byte = 0;  
     delay(500);
-  }
-  
-  if(0 == ReadkeyFact()){
-    ESP.reset();
-    delay(1000);
-  }
+  }      
     
 }
