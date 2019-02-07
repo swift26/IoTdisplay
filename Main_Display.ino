@@ -526,15 +526,8 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         
         /* validate appointment date */
         if(appointmentday == currentdate){
-            /* validate appointment hour */
-            //Serial.printf("date matched \n");
-            if( currenthour.toInt() >= appointmenthour.toInt()  && currenthour.toInt() <= appointmentendhour.toInt()){
-                /*validate appointment minute */
-                //Serial.printf("hour matched \n");
-                //Serial.printf("appointment minutes %d\n", appointmentminute.toInt());
-                //Serial.printf("Current minutes %d\n", currentminute.toInt());
+            if( currenthour.toInt() == appointmenthour.toInt()){
                 if (currentminute.toInt() >= appointmentminute.toInt()){
-                  //Serial.printf("minute matched \n");
                     if(appointmentStatus == "current"){
                         current_apmt_count = appointmentNumber.toInt();
                         String appointmentID = root["content"][i]["appointmentId"];
@@ -547,15 +540,60 @@ void ExtractHourMinute(String time, String &hour,String &minute){
                         WiriteDispVal(current_apmt_count);
                         break;
                     }
-                    else{
-                        WiriteDispVal(000);
-                        continue;
+                }
+            }
+            else if ( currenthour.toInt() > appointmenthour.toInt() && currenthour.toInt() < appointmentendhour.toInt() && currenthour.toInt() != appointmentendhour.toInt()){
+                if(appointmentStatus == "current"){
+                    current_apmt_count = appointmentNumber.toInt();
+                    String appointmentID = root["content"][i]["appointmentId"];
+                    currentappointmentid = appointmentID.toInt();
+                    String previousapmtID = root["content"][i-1]["appointmentId"];
+                    previousappointmentID = previousapmtID.toInt();
+                    String nextapmtID = root["content"][i+1]["appointmentId"];
+                    nextappointmentID = nextapmtID.toInt();
+                    Serial.printf("appointmentNumber = %d\n", current_apmt_count);
+                    WiriteDispVal(current_apmt_count);
+                    break;
+                }
+            }
+            else if (currenthour.toInt() == appointmentendhour.toInt()){
+                if (currentminute.toInt() < appointmentendminute.toInt()){
+                    if(appointmentStatus == "current"){
+                    current_apmt_count = appointmentNumber.toInt();
+                    String appointmentID = root["content"][i]["appointmentId"];
+                    currentappointmentid = appointmentID.toInt();
+                    String previousapmtID = root["content"][i-1]["appointmentId"];
+                    previousappointmentID = previousapmtID.toInt();
+                    String nextapmtID = root["content"][i+1]["appointmentId"];
+                    nextappointmentID = nextapmtID.toInt();
+                    Serial.printf("appointmentNumber = %d\n", current_apmt_count);
+                    WiriteDispVal(current_apmt_count);
+                    break;
+                    }
+                }
+            }
+            else{
+                WiriteDispVal(000);
+                continue;
+            }
+            if (currenthour.toInt() == 0 && appointmenthour.toInt() == 23 && && appointmentendhour.toInt() == 0 ){
+                 if (currentminute.toInt() < appointmentendminute.toInt()){
+                    if(appointmentStatus == "current"){
+                    current_apmt_count = appointmentNumber.toInt();
+                    String appointmentID = root["content"][i]["appointmentId"];
+                    currentappointmentid = appointmentID.toInt();
+                    String previousapmtID = root["content"][i-1]["appointmentId"];
+                    previousappointmentID = previousapmtID.toInt();
+                    String nextapmtID = root["content"][i+1]["appointmentId"];
+                    nextappointmentID = nextapmtID.toInt();
+                    Serial.printf("appointmentNumber = %d\n", current_apmt_count);
+                    WiriteDispVal(current_apmt_count);
+                    break;
                     }
                 }
             }
         }
     }
-  }
  }
 
 /*
