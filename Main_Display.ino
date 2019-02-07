@@ -413,7 +413,6 @@ void updateHeartBeat(void)
       digitalWrite(HB_LED_OUTPUT, state);
       //digitalWrite(BUZ_DRV_OUTPUT, state);      
     }
-    /*------------------------------------END---------------------------------------*/
 }
 
 /*
@@ -605,26 +604,10 @@ void ExtractHourMinute(String time, String &hour,String &minute){
                 WiriteDispVal(000);
                 continue;
             }
-            if (currenthour.toInt() == 0 && appointmenthour.toInt() == 23 && && appointmentendhour.toInt() == 0 ){
-                 if (currentminute.toInt() < appointmentendminute.toInt()){
-                    if(appointmentStatus == "current"){
-                    current_apmt_count = appointmentNumber.toInt();
-                    String appointmentID = root["content"][i]["appointmentId"];
-                    currentappointmentid = appointmentID.toInt();
-                    String previousapmtID = root["content"][i-1]["appointmentId"];
-                    previousappointmentID = previousapmtID.toInt();
-                    String nextapmtID = root["content"][i+1]["appointmentId"];
-                    nextappointmentID = nextapmtID.toInt();
-                    Serial.printf("appointmentNumber = %d\n", current_apmt_count);
-                    WiriteDispVal(current_apmt_count);
-                    break;
-                    }
-                }
-            }
         }
     }
  }
-
+}
 /*
 *-------------------------------------------------------------------------------
 * Function: IoT_ConnectionHandler
@@ -648,13 +631,22 @@ void ExtractHourMinute(String time, String &hour,String &minute){
 *------------------------------------------------------------------------------
 */
 void IoT_ConnectionHandler(void) {
+  WiFiManager wifiManager1;
   switch (ConnectionState) {
   case IOT_CONNECT_TO_WIFI:
 #if DEBUG
     Serial.printf("Connecting to %s.\n", wifi_ssid);
 #endif
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(wifi_ssid, wifi_pass);
+    //WiFi.mode(WIFI_STA);
+    //WiFi.begin(wifi_ssid, wifi_pass);
+    // Local intialization. Once its business is done, there is no need to keep it around
+
+		
+		// set custom ip for portal
+//		wifiManager.setAPConfig(IPAddress(10,0,1,53), IPAddress(10,0,1,53), IPAddress(255,255,255,0));
+		wifiManager1.autoConnect("lyvtheoryAP");
+
+	  Serial.println("Connected..... to router");
     ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
     ConnectionCounter = 0;
     break;
@@ -691,10 +683,10 @@ void IoT_ConnectionHandler(void) {
     url = URL_1 + "date1=" + currentdate + "&" + "date2=" + nextdate;
     if (http.begin(url)) {
       http.setAuthorization("admin","admin");
-      http_put.begin(URL_UPDATE);
+
 #if DEBUG
       Serial.println(url);
-      http.setAuthorization("admin","admin");
+//      http.setAuthorization("admin","admin");
       Serial.printf("Connected to URL server.\n");
 #endif
       ConnectionState = IOT_MAINTAIN_CONNECTIONS;
@@ -853,6 +845,7 @@ void getTimeStamp() {
  
 void setup()
 {
+  int count=0;
   Serial.begin(9600);
   LedInitialWalk();
 
@@ -867,7 +860,7 @@ void setup()
   }
 
   // set custom ip for portal
-  wifiManager.setAPConfig(IPAddress(10,0,1,53), IPAddress(10,0,1,53), IPAddress(255,255,255,0));
+  //wifiManager.setAPConfig(IPAddress(10,0,1,53), IPAddress(10,0,1,53), IPAddress(255,255,255,0));
 
   // fetches ssid and pass from eeprom and tries to connect
   // if it does not connect it starts an access point with the specified name
@@ -897,6 +890,48 @@ void setup()
 }
 /***********************************************************************************************/
 
+/*
+*---------------------------------------------------------------------------------------------- 
+* Function: Http_Put_Message
+* 
+* Description: 
+*           PUT message to server
+*           
+* Parameters: void
+* Return : void
+*
+*------------------------------------------------------------------------------
+*/
+void Http_Put_Message(int increament)
+{
+    DynamicJsonBuffer  jsonBuffer(50);
+    JsonObject& root2 = jsonBuffer.createObject();
+    if(0 == increament){
+      current_apmt_count--;
+      root2["appointmentID"] =   previousappointmentID;
+    }
+    else{
+      current_apmt_count++;
+      root2["appointmentID"] =   nextappointmentID;
+    }
+    root2["date1"] = currentdate;
+    root2["date2"] = nextdate;
+    String postData = "";
+    root2.printTo(postData);
+    http_put.begin(URL_UPDATE);
+    http_put.setAuthorization("admin","admin");
+    http_put.addHeader("Content-Type", "application/json");
+    int httpResponseCode= http_put.PUT(postData);
+    String response = http.getString();
+    Serial.println(httpResponseCode);
+    Serial.println(response);
+    WiriteDispVal(current_apmt_count);
+    //add code to push to server to increment appointment count
+    Serial.println(String(serial_byte));
+    Serial.println(postData);
+    serial_byte = 0; 
+    delay(500);
+}
 /***********************************************************************************************
  * Function: loop
  * 
@@ -918,40 +953,12 @@ void loop()
       
   if(43 == serial_byte || 0 == ReadkeyUp())
   {
-    current_apmt_count++;
-    DynamicJsonBuffer  jsonBuffer(50);
-    JsonObject& root2 = jsonBuffer.createObject();
-    root2["appointmentID"] =   nextappointmentID;
-    root2["date1"] = currentdate;
-    root2["date2"] = nextdate;
-    String postData = "";
-    root2.printTo(postData);
-    http_put.PUT(postData);
-    WiriteDispVal(current_apmt_count);
-    //add code to push to server to increment appointment count
-    Serial.println(String(serial_byte));
-    Serial.println(postData);
-    serial_byte = 0; 
-    delay(500);      
+    Http_Put_Message(1);
   }
   
   if(45 == serial_byte || 0 == ReadkeyDn())
   {
-    current_apmt_count--;
-    DynamicJsonBuffer  jsonBuffer(50);
-    JsonObject& root1 = jsonBuffer.createObject();
-    root1["appointmentID"] = previousappointmentID;
-    root1["date1"] = currentdate;
-    root1["date2"] = nextdate;
-    String postData = "";
-    root1.printTo(postData);
-    http_put.PUT(postData);
-    WiriteDispVal(current_apmt_count);  
-    //add code to push to server to increment appointment count 
-    Serial.println(String(serial_byte)); 
-    Serial.println(postData);
-    serial_byte = 0;  
-    delay(500);
+     Http_Put_Message(0);
   }      
     
 }
