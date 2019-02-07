@@ -81,6 +81,8 @@
 * Version 2.0:
 *        Feb 7 2019: 1. Completed logic for display and time comparision
 *                    2. Factory reset.
+* version 2.1:
+*       Feb 7 2019: 1. webmanager been added to configure dynamically
 *----------------------------------------------------------------------------------------------
 */
 
