@@ -644,6 +644,7 @@ void IoT_ConnectionHandler(void) {
 		
 		// set custom ip for portal
 //		wifiManager.setAPConfig(IPAddress(10,0,1,53), IPAddress(10,0,1,53), IPAddress(255,255,255,0));
+    wifiManager1.setDebugOutput(false);
 		wifiManager1.autoConnect("lyvtheoryAP");
 
 	  Serial.println("Connected..... to router");
@@ -866,6 +867,7 @@ void setup()
   // if it does not connect it starts an access point with the specified name
   // here  "lyvtheoryAP"
   // and goes into a blocking loop awaiting configuration
+  wifiManager.setDebugOutput(false);
   wifiManager.autoConnect("lyvtheoryAP");
   Serial.println("Connected..... to router");
 
