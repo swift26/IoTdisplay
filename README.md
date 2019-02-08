@@ -20,7 +20,12 @@ It is an led display project based on ESP8266
                   30 sec. (Is the charger detection mechanism is been implemented on HW??)
                4. Between number change play a sound.
                5. Button would be provided for start stop increment and decrement.
-               
+ 
+ Links fo be followed:
+ 
+ Remove your current NTPclient library and install this NTPClient library forked that also has the date
+       https://github.com/taranais/NTPClient
+ 
  Flow :
  
          Boot Flow:
