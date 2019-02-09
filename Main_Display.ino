@@ -185,14 +185,13 @@ unsigned char     CHAR_CODE[]
     0b01001001,0b00100111,    //7
     0b01111011,0b11101111,    //8
     0b01111001,0b11101111,    //9
+    0b00000001,0b11000000,    //10 single horizontal line
+    0b00001110,0b00111000,    //11 duoble horizontal line
+    0b00001111,0b11111000,    //12 triple horizontal line
+    0b01110000,0b00000111,    //13 top and bottom horizontal line 
   };
 
 SimpleTimer IoTConnectionHandlerTimer;
-
-// WiFi credentials.
-// Set password to "" for open networks.
-char wifi_ssid[] = "Airtel-B310-90C5";
-char wifi_pass[] = "A445F97458F";
 
 typedef enum {
   IOT_CONNECT_TO_WIFI,
@@ -297,6 +296,74 @@ unsigned char ReadkeyFact(void)
 {
   /* read the state of the pushbutton value */
   return digitalRead(KEY_FACT);
+}
+
+
+/*
+*------------------------------------------------------------------------------
+*  void WiriteDispSpecChar(unsigned int val)
+*
+*  Summary: Write special char on display for wifi communicaton status indicataion 
+*
+*  Input  : unsigned int val  ( valure range from 0 - 3)
+*           0 - single horizontal line  (from horizontal center)
+*           1 - duoble horizontal line  (from horizontal center)
+*           2 - triple horizontal line  (from horizontal center)
+*           3 - top and bottom horizontal line 
+*  Output : None
+*
+*------------------------------------------------------------------------------
+*/
+void WiriteDispSpecChar(unsigned int val)
+{
+    switch(val)
+    {
+      case 0:
+      {
+        DisplayBuff[5] = CHAR_CODE[21];  // digit 2
+        DisplayBuff[4] = CHAR_CODE[20];
+        DisplayBuff[3] = CHAR_CODE[21];  // digit 1
+        DisplayBuff[2] = CHAR_CODE[20];
+        DisplayBuff[1] = CHAR_CODE[21];  // digit 0
+        DisplayBuff[0] = CHAR_CODE[20];   
+        UpdateDisplay(DisplayBuff); 
+      }
+      break;    
+      case 1:
+      {
+        DisplayBuff[5] = CHAR_CODE[23];  // digit 2
+        DisplayBuff[4] = CHAR_CODE[22];
+        DisplayBuff[3] = CHAR_CODE[23];  // digit 1
+        DisplayBuff[2] = CHAR_CODE[22];
+        DisplayBuff[1] = CHAR_CODE[23];  // digit 0
+        DisplayBuff[0] = CHAR_CODE[22];   
+        UpdateDisplay(DisplayBuff); 
+      }
+      break;    
+      case 2:
+      {
+        DisplayBuff[5] = CHAR_CODE[25];  // digit 2
+        DisplayBuff[4] = CHAR_CODE[24];
+        DisplayBuff[3] = CHAR_CODE[25];  // digit 1
+        DisplayBuff[2] = CHAR_CODE[24];
+        DisplayBuff[1] = CHAR_CODE[25];  // digit 0
+        DisplayBuff[0] = CHAR_CODE[24];   
+        UpdateDisplay(DisplayBuff); 
+      }
+      break;    
+      case 3:
+      {
+        DisplayBuff[5] = CHAR_CODE[27];  // digit 2
+        DisplayBuff[4] = CHAR_CODE[26];
+        DisplayBuff[3] = CHAR_CODE[27];  // digit 1
+        DisplayBuff[2] = CHAR_CODE[26];
+        DisplayBuff[1] = CHAR_CODE[27];  // digit 0
+        DisplayBuff[0] = CHAR_CODE[26];   
+        UpdateDisplay(DisplayBuff); 
+      }
+      break; 
+      default:break;   
+    } 
 }
 
 /*
@@ -554,31 +621,33 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         
         /* validate appointment date */
         if(appointmentday == currentdate){
-            if( currenthour.toInt() == appointmenthour.toInt()){
-                if (currentminute.toInt() >= appointmentminute.toInt()){
-                    if(appointmentStatus == "current"){
-                        current_apmt_count = appointmentNumber.toInt();
-                        String appointmentID = root["content"][i]["appointmentId"];
-                        currentappointmentid = appointmentID.toInt();
-                        String previousapmtID = root["content"][i-1]["appointmentId"];
-                        previousappointmentID = previousapmtID.toInt();
-                        String nextapmtID = root["content"][i+1]["appointmentId"];
-                        nextappointmentID = nextapmtID.toInt();
-                        Serial.printf("appointmentNumber = %d\n", current_apmt_count);
-                        WiriteDispVal(current_apmt_count);
-                        break;
-                    }
-                }
-            }
-            else if ( currenthour.toInt() > appointmenthour.toInt() && currenthour.toInt() < appointmentendhour.toInt() && currenthour.toInt() != appointmentendhour.toInt()){
-                if(appointmentStatus == "current"){
-                    current_apmt_count = appointmentNumber.toInt();
+            if( currenthour.toInt() == appointmenthour.toInt()&& currenthour.toInt() == appointmentendhour.toInt()){
+                if (currentminute.toInt() >= appointmentminute.toInt()&& currentminute.toInt() <= appointmentendminute.toInt()){
+                    //Always get the current appointment id and previous appointment id irrespective of it is current or open
                     String appointmentID = root["content"][i]["appointmentId"];
                     currentappointmentid = appointmentID.toInt();
                     String previousapmtID = root["content"][i-1]["appointmentId"];
                     previousappointmentID = previousapmtID.toInt();
                     String nextapmtID = root["content"][i+1]["appointmentId"];
                     nextappointmentID = nextapmtID.toInt();
+                    if(appointmentStatus == "current"){
+                        current_apmt_count = appointmentNumber.toInt();
+                        Serial.printf("appointmentNumber = %d\n", current_apmt_count);
+                        WiriteDispVal(current_apmt_count);
+                        break;
+                    }
+                }
+            }
+            else if ( currenthour.toInt() >= appointmenthour.toInt() && currenthour.toInt() < appointmentendhour.toInt() && currenthour.toInt() != appointmentendhour.toInt()){
+                    //Always get the current appointment id and previous appointment id irrespective of it is current or open
+                    String appointmentID = root["content"][i]["appointmentId"];
+                    currentappointmentid = appointmentID.toInt();
+                    String previousapmtID = root["content"][i-1]["appointmentId"];
+                    previousappointmentID = previousapmtID.toInt();
+                    String nextapmtID = root["content"][i+1]["appointmentId"];
+                    nextappointmentID = nextapmtID.toInt();              
+                if(appointmentStatus == "current"){
+                    current_apmt_count = appointmentNumber.toInt();
                     Serial.printf("appointmentNumber = %d\n", current_apmt_count);
                     WiriteDispVal(current_apmt_count);
                     break;
@@ -586,14 +655,15 @@ void ExtractHourMinute(String time, String &hour,String &minute){
             }
             else if (currenthour.toInt() == appointmentendhour.toInt()){
                 if (currentminute.toInt() < appointmentendminute.toInt()){
-                    if(appointmentStatus == "current"){
-                    current_apmt_count = appointmentNumber.toInt();
+                    //Always get the current appointment id and previous appointment id irrespective of it is current or open
                     String appointmentID = root["content"][i]["appointmentId"];
                     currentappointmentid = appointmentID.toInt();
                     String previousapmtID = root["content"][i-1]["appointmentId"];
                     previousappointmentID = previousapmtID.toInt();
                     String nextapmtID = root["content"][i+1]["appointmentId"];
                     nextappointmentID = nextapmtID.toInt();
+                    if(appointmentStatus == "current"){
+                    current_apmt_count = appointmentNumber.toInt();
                     Serial.printf("appointmentNumber = %d\n", current_apmt_count);
                     WiriteDispVal(current_apmt_count);
                     break;
@@ -607,6 +677,33 @@ void ExtractHourMinute(String time, String &hour,String &minute){
         }
     }
  }
+}
+
+void ConnectToWifi(void)
+{
+    // Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+
+  if(0 == ReadkeyFact())
+  {
+    wifiManager.resetSettings();
+    ESP.reset();
+    delay(2000);
+  }
+
+  // set custom ip for portal
+  //wifiManager.setAPConfig(IPAddress(10,0,1,53), IPAddress(10,0,1,53), IPAddress(255,255,255,0));
+
+  // fetches ssid and pass from eeprom and tries to connect
+  // if it does not connect it starts an access point with the specified name
+  // here  "lyvtheoryAP"
+  // and goes into a blocking loop awaiting configuration
+  //wifiManager.setDebugOutput(false);
+  //wifiManager.setConnectTimeout(30);
+  WiriteDispSpecChar(0);
+  delay(1000);
+  wifiManager.autoConnect("lyvtheoryAP");
+  WiriteDispSpecChar(3);
 }
 /*
 *-------------------------------------------------------------------------------
@@ -631,38 +728,18 @@ void ExtractHourMinute(String time, String &hour,String &minute){
 *------------------------------------------------------------------------------
 */
 void IoT_ConnectionHandler(void) {
-  WiFiManager wifiManager1;
   switch (ConnectionState) {
   case IOT_CONNECT_TO_WIFI:
-#if DEBUG
-    Serial.printf("Connecting to %s.\n", wifi_ssid);
-#endif
-    //WiFi.mode(WIFI_STA);
-    //WiFi.begin(wifi_ssid, wifi_pass);
-    // Local intialization. Once its business is done, there is no need to keep it around
-
-		
-		// set custom ip for portal
-//		wifiManager.setAPConfig(IPAddress(10,0,1,53), IPAddress(10,0,1,53), IPAddress(255,255,255,0));
-    wifiManager1.setDebugOutput(false);
-		wifiManager1.autoConnect("lyvtheoryAP");
-
-	  Serial.println("Connected..... to router");
+    ConnectToWifi();
     ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
     ConnectionCounter = 0;
     break;
 
   case IOT_AWAIT_WIFI_CONNECTION:
     if (WiFi.status() == WL_CONNECTED) {
-#if DEBUG
-      Serial.printf("Connected to %s\n", wifi_ssid);
-#endif
       ConnectionState = IOT_CONNECT_TO_URL;
     }
     else if (++ConnectionCounter == 50) {
-#if DEBUG
-      Serial.printf("Unable to connect to %s. Retry connection.\n", wifi_ssid);
-#endif
       WiFi.disconnect();
       ConnectionState = IOT_AWAIT_DISCONNECT;
       ConnectionCounter = 0;
@@ -682,9 +759,10 @@ void IoT_ConnectionHandler(void) {
     getTimeStamp();
     getnextdate(currentdate,nextdate);
     url = URL_1 + "date1=" + currentdate + "&" + "date2=" + nextdate;
+    http.setAuthorization("admin","admin");
     if (http.begin(url)) {
-      http.setAuthorization("admin","admin");
-
+      
+    WiriteDispSpecChar(2);
 #if DEBUG
       Serial.println(url);
 //      http.setAuthorization("admin","admin");
@@ -834,8 +912,7 @@ void getTimeStamp() {
 * Description: 
 *           This function is used for handling initial setup of project.
 *           1. Serial setup for Debug
-*           2. Setup for OTA upgrade
-*           3. Setup for LED display
+*           2. Setup for LED display
 *           4. Setup Connection handler for Wifi and URL
 *           
 * Parameters: void
@@ -849,43 +926,18 @@ void setup()
   int count=0;
   Serial.begin(9600);
   LedInitialWalk();
-
-  // Local intialization. Once its business is done, there is no need to keep it around
-  WiFiManager wifiManager;
-
-  if(0 == ReadkeyFact())
-  {
-    wifiManager.resetSettings();
-    ESP.reset();
-    delay(2000);
-  }
-
-  // set custom ip for portal
-  //wifiManager.setAPConfig(IPAddress(10,0,1,53), IPAddress(10,0,1,53), IPAddress(255,255,255,0));
-
-  // fetches ssid and pass from eeprom and tries to connect
-  // if it does not connect it starts an access point with the specified name
-  // here  "lyvtheoryAP"
-  // and goes into a blocking loop awaiting configuration
-  wifiManager.setDebugOutput(false);
-  wifiManager.autoConnect("lyvtheoryAP");
+  ConnectToWifi();
+  Serial.end();
+  Serial.begin(9600);
   Serial.println("Connected..... to router");
-
   ConnectionState = IOT_AWAIT_WIFI_CONNECTION;
-  String hostname("IoTDisplay-OTA-");
-  hostname += String(ESP.getChipId(), HEX);
-  ArduinoOTA.setHostname((const char *)hostname.c_str());
-  ArduinoOTA.begin();
-  IoTConnectionHandlerTimer.setInterval(2000, IoT_ConnectionHandler);
+  IoTConnectionHandlerTimer.setInterval(3000, IoT_ConnectionHandler);
 
   // Initialize a NTPClient to get time
   timeClient.begin();
   // Set offset time in seconds to adjust for your timezone, for example:
   // GMT +1 = 3600
   // GMT +5.30 = ((3600 * 5)+ (30*60))
-  // GMT +8 = 28800
-  // GMT -1 = -3600
-  // GMT 0 = 0
   timeClient.setTimeOffset(((3600 * 5)+ (30*60)));
   delay(200);
   getTimeStamp();
@@ -924,15 +976,24 @@ void Http_Put_Message(int increament)
     http_put.setAuthorization("admin","admin");
     http_put.addHeader("Content-Type", "application/json");
     int httpResponseCode= http_put.PUT(postData);
-    String response = http.getString();
+    //String response = http.getString();
     Serial.println(httpResponseCode);
-    Serial.println(response);
-    WiriteDispVal(current_apmt_count);
+    //Serial.println(response);
+    if(200 == httpResponseCode)
+        WiriteDispVal(current_apmt_count);
+    else{
+      int httpResp= http_put.PUT(postData);//try two time to confirm response is 200 or not.
+      if(200 == httpResp)
+        WiriteDispVal(current_apmt_count);
+      else
+        WiriteDispSpecChar(1); //server write error
+      Serial.println(httpResp);
+    }
+        
     //add code to push to server to increment appointment count
-    Serial.println(String(serial_byte));
-    Serial.println(postData);
-    serial_byte = 0; 
-    delay(500);
+    //Serial.println(String(serial_byte));
+    //Serial.println(postData);
+    serial_byte = 0;
 }
 /***********************************************************************************************
  * Function: loop
@@ -945,9 +1006,9 @@ void Http_Put_Message(int increament)
  ***********************************************************************************************/
 void loop()
 {
-  ArduinoOTA.handle();
   IoTConnectionHandlerTimer.run();
   updateHeartBeat();
+
   if (Serial.available() > 0) {
       // read the incoming byte:
        serial_byte = Serial.read();
