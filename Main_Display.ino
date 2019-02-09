@@ -83,6 +83,11 @@
 *                    2. Factory reset.
 * version 2.1:
 *       Feb 7 2019: 1. webmanager been added to configure dynamically
+* version 2.2:
+*       Feb 9 2019: 1. Webmanager issue fixed.
+*                   2. OTA removed conflict with server code and crash the system
+*                   3. Logic of parsing changed
+*                 Commited by: TK
 *----------------------------------------------------------------------------------------------
 */
 
