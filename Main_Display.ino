@@ -97,7 +97,7 @@
  *----------------------------------------------------------------------------------------------
 */
 #include <ESP8266WiFi.h> //For Wifi enable
-#include <SimpleTimer.h> //For Timer events
+#include <SimpleTimer.h> //For Timer events https://github.com/schinken/SimpleTimer
 #include <ESP8266mDNS.h> //For OTA upgrade over wifi
 #include <WiFiUdp.h>     //For OTA upgrade over wifi
 #include <ArduinoOTA.h>  //For OTA upgrade over wifi
